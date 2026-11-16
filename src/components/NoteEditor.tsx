@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { mutations, useNotePhoto } from '../api/hooks'
 import type { DocPageImage, Note } from '../api/types'
 import { dataUrl, preparePhoto } from '../lib/images'
+import { suggest } from '../lib/suggest'
 import { Icon } from './Icons'
 import { Modal } from './Modal'
 import { useToast } from './Toast'
@@ -23,6 +24,7 @@ export function NoteEditor({ note, categories, onClose }: { note?: Note; categor
   const toast = useToast()
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [key]: e.target.value })
   const shown = photo === undefined ? (note?.photoId ? current.data : undefined) : (photo ?? undefined)
+  const categoryHints = suggest(form.category, categories)
   const hasPhoto = photo === undefined ? !!note?.photoId : !!photo
 
   const choose = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -96,13 +98,18 @@ export function NoteEditor({ note, categories, onClose }: { note?: Note; categor
       </label>
       <label className="field">
         <span>Category</span>
-        <input type="text" value={form.category} onChange={set('category')} maxLength={50} list="note-categories" placeholder="Appliances, Neighbours…" />
-        <datalist id="note-categories">
-          {categories.map((c) => (
-            <option key={c} value={c} />
-          ))}
-        </datalist>
+        <input type="text" value={form.category} onChange={set('category')} maxLength={50} autoComplete="off" placeholder="Appliances, Neighbours…" />
       </label>
+      {categoryHints.length > 0 && (
+        <div className="chips suggestions in-form" aria-label="Categories in use">
+          {categoryHints.map((c) => (
+            // preventDefault on pointerdown keeps focus in the input, so the phone keyboard stays up
+            <button key={c} type="button" className="chip" onPointerDown={(e) => e.preventDefault()} onClick={() => setForm({ ...form, category: c })}>
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
       <label className="field">
         <span>Note</span>
         <textarea rows={10} value={form.body} onChange={set('body')} maxLength={10000} placeholder="Model number, where the manual is, a web address…" />

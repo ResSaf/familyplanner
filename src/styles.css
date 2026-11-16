@@ -183,6 +183,8 @@ input[type='checkbox']:checked::after { content: ''; width: 6px; height: 11px; m
 
 .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .chip { min-height: 38px; padding: 0 0.9rem; border-radius: 999px; border: 0; background: var(--sunk); cursor: pointer; font-size: 0.9rem; font-weight: 600; white-space: nowrap; flex-shrink: 0; color: var(--text); }
+.suggestions { margin-top: 0.5rem; }
+.suggestions.in-form { margin: -0.35rem 0 0.75rem; }
 .chip.on { background: var(--accent); color: var(--on-accent); }
 
 /* Segmented control. To-dos' .tabs and the Meals page tabs share the same look. */

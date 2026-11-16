@@ -1,7 +1,7 @@
 # FamilyPlanner — Requirements Document
 **Version:** 0.5 (v1 scope)
 **Status:** Draft
-**Last updated:** 1 November 2026
+**Last updated:** 14 November 2026
 
 ---
 
@@ -33,7 +33,7 @@ Explicitly out of scope for the first release:
 - Push notifications or reminders. Deferred to v2.
 - Real-time collaboration (WebSockets or SignalR). Polling on focus is sufficient for v1.
 - Creating, editing or deleting events in the planner, and writing to Google Calendar. Google Calendar is the single source of truth for events; the planner only displays them (Section 5.3).
-- Budgeting, chores with rewards, recurring or tracked chores, photo sharing. All possible later, none in v1.
+- Budgeting, chores with rewards, recurring or tracked chores, photo sharing. All possible later, none in v1. Non-weekly and tickable chores have since been requested (5.13, R1 and R2).
 - Structured recipe data: nutrition information, portion scaling, ingredients as records. Recipes are plain text (Section 5.8) and the meal plan stays a plan of plain text.
 - Offline editing. The app should load its shell offline but does not need to queue writes.
 - AI features beyond the read-only chat in Section 5.10.
@@ -161,7 +161,7 @@ The family's recipes, kept in the app. They have their own item in the top navig
 
 ### 5.9 Chores
 
-A display of who has which chore each week. It records the plan and nothing else: any adult can do any chore, so there is no completing, no reminding and no rotation.
+A display of who has which chore each week. It records the plan and nothing else: any adult can do any chore, so there is no completing, no reminding and no rotation. Non-weekly chores and ticking chores off have been requested (5.13, R1 and R2).
 
 - The family keeps one list of chores by name. Any member can add, rename or delete them. Deleting a chore removes it from every week.
 - The page shows one week at a time, Monday to Sunday, with previous and next navigation like the meal plan. Larger screens have a Chores item in the top navigation, and on a phone it is a tab on the To-dos page. Each chore shows the family's people as chips. Tap one to assign the chore for that week and tap again to clear it.
@@ -203,6 +203,14 @@ A place to keep photographed paperwork (letters, warranties, certificates, manua
 - **Chat** can search documents by their title and description (`find_documents`) and sees only those words, never a page or a thumbnail (S33).
 - **Storage.** Each page is its own record in Cosmos DB, base64, at most 1.5 MB, read only through its document, so listing documents never loads a photo. The image fields are left out of the Cosmos index. The server checks each upload's first bytes match its declared type (JPEG, PNG or WebP). Pages are shown as `data:` images, which the CSP already allows. Blob Storage is the move if documents grow beyond a family's paperwork or OCR is added.
 - **Backup.** The export includes each document's title, description and page list but not its images, which would make one file too large to download. Images are covered only by Cosmos DB's periodic backup (S25), so a parent should keep the originals of anything important until a scheduled backup of the images exists.
+
+### 5.13 Requested features (not yet built)
+
+Asked for on 14 November 2026. Each one changes something decided above, noted against it, so the open questions should be settled before it is built. The defaults let work go ahead without them.
+
+- **R1. Chores that aren't weekly.** Some chores come round less often than weekly: the bins on alternate weeks, changing the beds, cleaning the oven. A chore gets an optional repeat of every N weeks from a starting week; weekly is N = 1 and stays the default, so existing chores are unchanged. In a week it isn't due, a chore doesn't show on the Chores page, the dashboard or the wall. Assigning works as now in the weeks it is due, and "Copy last week" copies such a chore from the last week it was due rather than the week before. Changes 5.9 and the "recurring" non-goal in Section 3. Data: `chore` gains `everyWeeks` (default 1) and `fromWeek` (a Monday). Open: is a monthly repeat ("first Saturday of the month") needed as well? Default: every N weeks only.
+- **R2. Ticking off chores, wherever they show.** A chore can be marked done for its week with one tap on the Chores page, on the dashboard's chores section and on the wall, with Undo for five seconds as for to-dos (5.5). It records who ticked it and when, which needn't be the person assigned. A done chore stays in place, ticked and dimmed, so the week's plan still reads. Each week starts unticked, and an unassigned chore can be ticked too. Changes 5.9 ("no completing") and the "tracked chores" non-goal. Data: `choreWeek` gains `done`, `doneAt` and `doneBy`, and may exist with no `memberId` once ticked. Wall: a third display write, `POST /display/chores/{id}/done` with `{ week, done }`, sent as JSON, which ticks or unticks and changes nothing else, recorded as `display:<device id>`; S34, A13a and A13b extend to it, and its accepted risk is the same as for to-dos. Open: should the dashboard hide done chores rather than dim them? Default: dim.
+- **R3. Adding to a shopping list from the wall, with suggestions.** The wall's shopping card and Lists page get an Add button. It opens a panel for one list (the default, or the list it was opened from) showing suggestion chips first and a text box under them, so most adds are a single tap without the frame's keyboard. Tapping a chip adds that item and keeps the panel open, as the quick-add sheet does (5.2). Suggestions are the list's usual items that aren't on it now, ranked by how overdue they are: an item bought roughly every 7 days and last ticked 9 days ago comes before one bought monthly. Typing filters them, as autocomplete does in the app (5.4). The same suggestions appear in the app's add box and quick-add sheet. The engine is plain counting on the server, with no AI model, so nothing leaves Azure (S33). Because "Clear done" deletes checked items, purchase history needs its own record: one `buyHistory` document per list and item name, updated when an item is ticked, holding a count, the last few tick dates and the typical gap between them. Wall: a fourth display write, `POST /display/lists/{id}/items` with `{ name }` only, sent as JSON, within the length limits of S13, on an open list, recorded as `display:<device id>`. This is the first time the wall key can add rather than tick, so S34's statement that it "cannot add" changes: anyone at the frame can add an item, as with a pen by the list on the fridge, and the wall offers Undo for a few seconds, which deletes only the item just added. The key still can't edit or delete any other item. Open: is the frame's on-screen keyboard usable, or should the wall offer suggestions only? Default: both, suggestions first. And should suggestions also come from recipes on this week's plan? Default: not yet.
 
 ---
 
