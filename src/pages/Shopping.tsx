@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { mutations, useItems, useLists, useMe } from '../api/hooks'
 import { CATEGORIES, type Category, type Item } from '../api/types'
 import { Icon } from '../components/Icons'
+import { suggest } from '../lib/suggest'
 import { Modal } from '../components/Modal'
 import { useToast } from '../components/Toast'
 
@@ -20,6 +21,11 @@ export function itemsToText(items: Item[]): string {
   }
   const order = ['', ...CATEGORIES].filter((c) => groups.has(c))
   return order.map((c) => (c ? `${c}\n` : '') + groups.get(c)!.map(line).join('\n')).join('\n\n')
+}
+
+/** Past names to offer while typing an item, leaving out what's already unchecked on the list. */
+export function suggestionsFor(query: string, recentNames: string[], items: Item[], max = 6): string[] {
+  return suggest(query, recentNames, items.filter((i) => !i.checked).map((i) => i.name), max)
 }
 
 export function Shopping() {
@@ -48,7 +54,11 @@ export function Shopping() {
 
   const add = async (e: FormEvent) => {
     e.preventDefault()
-    const n = name.trim()
+    await addName(name)
+  }
+
+  const addName = async (raw: string) => {
+    const n = raw.trim()
     if (!n || !listId) return
     setName('')
     inputRef.current?.focus()
@@ -96,6 +106,7 @@ export function Shopping() {
     }
     return groups.filter((g) => g.items.length)
   }, [items])
+  const suggestions = useMemo(() => suggestionsFor(name, list?.recentNames ?? [], items), [name, list, items])
   const done = items.filter((i) => i.checked)
   const anyCategory = items.some((i) => !i.checked && i.category)
 
@@ -125,16 +136,21 @@ export function Shopping() {
       {list && (
         <div className="card">
           <form className="row" onSubmit={add}>
-            <input ref={inputRef} type="text" aria-label={`Add to ${list.name}`} placeholder={`Add to ${list.name}…`} value={name} onChange={(e) => setName(e.target.value)} list="recent-names" maxLength={200} autoComplete="off" enterKeyHint="done" />
-            <datalist id="recent-names">
-              {list.recentNames.map((n) => (
-                <option key={n} value={n} />
-              ))}
-            </datalist>
+            <input ref={inputRef} type="text" aria-label={`Add to ${list.name}`} placeholder={`Add to ${list.name}…`} value={name} onChange={(e) => setName(e.target.value)} maxLength={200} autoComplete="off" enterKeyHint="done" />
             <button className="btn primary" type="submit" disabled={!name.trim()}>
               Add
             </button>
           </form>
+          {suggestions.length > 0 && (
+            <div className="chips suggestions" aria-label="Suggestions">
+              {suggestions.map((n) => (
+                // preventDefault on pointerdown keeps focus in the input, so the phone keyboard stays up
+                <button key={n} type="button" className="chip" onPointerDown={(e) => e.preventDefault()} onClick={() => void addName(n)}>
+                  {n}
+                </button>
+              ))}
+            </div>
+          )}
           {isLoading && <p className="loading">Loading…</p>}
           {isError && <p className="empty">Could not load this list. It will retry shortly.</p>}
           {!isLoading && !isError && grouped.length === 0 && <p className="empty">Nothing to buy. Add something above.</p>}
