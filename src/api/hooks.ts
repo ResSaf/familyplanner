@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { ChatMessage, Chore, ChoreRepeat, ChoreSchedule, DisplayDevice, ExternalEvents, Item, List, Me, DocPageImage, FamilyDocument, MemberRecord, Note, NoteInput, Person, PlanEntry, Recipe, RecipeInput, Settings, Shopping, Task, WallList, Weather } from './types'
+import type { ChatMessage, Chore, ChoreRepeat, ChoreSchedule, DisplayDevice, ExternalEvents, Item, List, Me, DocPageImage, FamilyDocument, MemberRecord, Note, NoteInput, Person, PlanEntry, Recipe, RecipeInput, Settings, Shopping, Task, WallList, WashStart, WashState, Weather } from './types'
 
 export const useMe = () => useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/me') })
 export const usePeople = () => useQuery({ queryKey: ['people'], queryFn: () => api<Person[]>('/people'), staleTime: 60_000 })
@@ -60,6 +60,21 @@ export const useChores = (monday: string) => useQuery({ queryKey: ['chores', mon
 
 export const useWeather = () => useQuery({ queryKey: ['weather'], queryFn: () => api<Weather>('/weather'), staleTime: 30 * 60_000, retry: false })
 
+/**
+ * The washer-dryer (5.14), with how far this device's clock is from the server's, so the countdown is right on a
+ * frame whose clock has drifted. Checked every 30 seconds while the page is open, as a shared list is.
+ */
+export const useWash = () =>
+  useQuery({
+    queryKey: ['wash'],
+    queryFn: async () => {
+      const state = await api<WashState>('/wash')
+      return { ...state, skewMs: Date.parse(state.now) - Date.now() }
+    },
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+  })
+
 export const useMembers = () => useQuery({ queryKey: ['members'], queryFn: () => api<MemberRecord[]>('/members') })
 export const useDisplayDevices = () => useQuery({ queryKey: ['display-devices'], queryFn: () => api<DisplayDevice[]>('/display-devices') })
 
@@ -86,6 +101,11 @@ export const mutations = {
   /** Wall page only: the display key's two writes, under /api/display (S34). */
   wallSetTaskDone: (id: string, done: boolean) => api<Task>(`/tasks/${id}/done`, { method: 'POST', json: { done } }),
   wallSetItemChecked: (id: string, checked: boolean) => api<Item>(`/items/${id}/checked`, { method: 'POST', json: { checked } }),
+
+  /** The washing machine. On the wall page these go to /api/display/wash, three of its writes (S34). */
+  startWash: (body: WashStart) => api<WashState>('/wash', { method: 'POST', json: body }),
+  adjustWash: (minutes: number) => api<WashState>('/wash/adjust', { method: 'POST', json: { minutes } }),
+  setWashEmptied: (emptied: boolean) => api<WashState>('/wash/emptied', { method: 'POST', json: { emptied } }),
 
   setCell: (date: string, slot: string, body: { text: string }) =>
     api<PlanEntry>(`/plan/${date}/${slot}`, { method: 'PUT', json: body }),

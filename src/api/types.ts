@@ -192,3 +192,28 @@ export interface Settings {
   breakfastEnabled: boolean
   defaultListId?: string
 }
+
+/** What can go in the washer-dryer (5.14). The same list as the API's. */
+export const LOADS = ['Lights', 'Darks', 'Colours', 'Whites', 'Towels', 'Bedding', 'Delicates', 'Mixed'] as const
+export type Load = (typeof LOADS)[number]
+export interface Wash {
+  load: Load
+  /** Washed and dried in one go. */
+  dry: boolean
+  minutes: number
+  startsAt: string
+  endsAt: string
+  startedBy: string
+}
+export interface WashState {
+  wash: Wash | null
+  usual: Partial<Record<Load, { minutes: number; dry: boolean }>>
+  /** The server's clock when it answered. */
+  now: string
+}
+export interface WashStart {
+  load: Load
+  dry: boolean
+  minutes: number
+  delayMinutes: number
+}

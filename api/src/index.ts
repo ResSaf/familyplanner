@@ -11,6 +11,7 @@ import * as notes from './handlers/notes'
 import * as plan from './handlers/plan'
 import * as recipes from './handlers/recipes'
 import * as tasks from './handlers/tasks'
+import * as wash from './handlers/wash'
 import * as weather from './handlers/weather'
 
 const ADMIN = { roles: ['admin' as const] }
@@ -92,6 +93,16 @@ route('document-pages-get', 'GET', 'documents/{id}/pages/{pageId}', ANY, documen
 route('document-pages-delete', 'DELETE', 'documents/{id}/pages/{pageId}', ANY, documents.deletePage)
 
 view('weather-get', 'weather', weather.getWeather)
+
+// The washer-dryer (5.14). The wall can start it, change its length and empty it, as anyone in the kitchen could (S34).
+const WALL_WRITE = { display: true, displayKey: true, displayWrite: true }
+view('wash-get', 'wash', wash.getWash)
+route('wash-start', 'POST', 'wash', ANY, wash.startWash)
+route('wash-adjust', 'POST', 'wash/adjust', ANY, wash.adjustWash)
+route('wash-emptied', 'POST', 'wash/emptied', ANY, wash.setWashEmptied)
+route('display-wash-start', 'POST', 'display/wash', WALL_WRITE, wash.startWash)
+route('display-wash-adjust', 'POST', 'display/wash/adjust', WALL_WRITE, wash.adjustWash)
+route('display-wash-emptied', 'POST', 'display/wash/emptied', WALL_WRITE, wash.setWashEmptied)
 
 route('chat-post', 'POST', 'chat', ANY, chat.chat)
 

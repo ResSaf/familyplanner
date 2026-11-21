@@ -14,6 +14,7 @@ import { NotePhoto } from '../components/NotePhoto'
 import { RecipeText } from '../components/RecipeText'
 import { degrees, describeWeather } from '../lib/weather'
 import { createDemoApi } from '../lib/demoWall'
+import { useWallWash } from '../components/WallWash'
 
 /** How often the wall page refetches its data. */
 const REFRESH_MS = 60_000
@@ -179,12 +180,14 @@ function DisplayBoard({ onSecret }: { onSecret?: () => void }) {
     await qc.invalidateQueries({ queryKey: ['tasks'] })
   }
   const showCalendar = calendars.length > 1
+  const wash = useWallWash()
 
   return (
     <div className="wall" onPointerDown={() => setTouchedAt(Date.now())}>
       <header className="wall-top">
         <WallTimer time={fmtTime(now.toISOString())} date={fmtDayLong(today)} />
-        {weather?.forecast && <WallWeather weather={weather} today={today} />}
+        {/* A wash waiting to be collected matters more than the forecast, so it takes the weather's place. */}
+        {wash.alert || (weather?.forecast && <WallWeather weather={weather} today={today} />)}
         <nav className="wall-views" aria-label="View">
           {VIEWS.map((v) => (
             <button
@@ -206,8 +209,10 @@ function DisplayBoard({ onSecret }: { onSecret?: () => void }) {
             <Icon name="note" size={22} />
             Notes
           </button>
+          {wash.button}
         </nav>
       </header>
+      {wash.panel}
 
       {view === 'lists' ? (
         <ListsView todos={openTodos(tasks, today)} today={today} onTodoDone={setTodoDone} />

@@ -30,7 +30,8 @@ interface RouteOptions {
   /** A /api/display/* alias (S34): a signed-in member, or a wall display's key cookie. Read only, unless `displayWrite`. Open at the edge. */
   displayKey?: boolean
   /**
-   * The only kind of write the wall display may make: ticking a to-do or a list item, or unticking it (S34).
+   * The only kind of write the wall display may make: ticking a to-do or a list item, or unticking it,
+   * and starting, adjusting or emptying the washing machine (S34, 5.14).
    * Must be a POST under display/ with `display` and `displayKey`, and the body must be sent as
    * JSON, which a page on another site can't do without the browser asking first.
    */
