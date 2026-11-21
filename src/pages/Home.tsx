@@ -6,6 +6,7 @@ import { Icon } from '../components/Icons'
 import { MealInput } from '../components/MealInput'
 import { Avatar, usePersonMap } from '../components/People'
 import { QuickAdd } from '../components/QuickAdd'
+import { WashCard, WashSheet } from '../components/Wash'
 import { addDays, fmtDayLong, fmtTime, fmtWeekday, mondayOf, relativeDay, todayISO } from '../lib/dates'
 import { eventsByDay } from '../lib/events'
 import { degrees, describeWeather } from '../lib/weather'
@@ -32,6 +33,7 @@ export function Home() {
   const thisWeek = usePlan(mondayOf(today))
   const nextWeek = usePlan(mondayOf(lastDay))
   // Packed lunches are made the evening before, so from 15:00 tomorrow opens on its own (section 5.2).
+  const [washOpen, setWashOpen] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(now.getHours() >= 15 ? tomorrow : null)
 
   const slots: Slot[] = settings?.breakfastEnabled ? ['breakfast', 'lunch', 'dinner'] : ['lunch', 'dinner']
@@ -78,9 +80,15 @@ export function Home() {
           <Icon name="doc" size={18} />
           Documents
         </Link>
+        <button type="button" onClick={() => setWashOpen(true)}>
+          <Icon name="washer" size={18} />
+          Wash
+        </button>
       </nav>
+      {washOpen && <WashSheet onClose={() => setWashOpen(false)} />}
 
       <div className="dash">
+        <WashCard />
         <section className="dash-today" aria-labelledby="today-h">
           <h2 id="today-h" className="section-title">
             Today

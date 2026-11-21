@@ -1,5 +1,5 @@
 import { ApiError, type ApiOverride } from '../api/client'
-import type { ChoreSchedule, ExternalCalendar, ExternalEvents, Me, Note, Occurrence, Person, PlanEntry, Recipe, Settings, Shopping, Task, WallList, Weather } from '../api/types'
+import type { ChoreSchedule, ExternalCalendar, ExternalEvents, Me, Note, Occurrence, Person, PlanEntry, Recipe, Settings, Shopping, Task, WallList, Wash, WashStart, WashState, Weather } from '../api/types'
 import { addDays, mondayOf, parseISODate, weekDays } from './dates'
 
 /**
@@ -254,15 +254,36 @@ const ME: Me = { ...PEOPLE[0], email: 'alex@example.com' }
 export function createDemoApi(today: () => string, hour: () => number = () => new Date().getHours()): ApiOverride {
   const tasks = demoTasks(today())
   const lists = demoLists()
+  // A wash on the go, so the demo shows the machine too. Changed only in the demo's own copy.
+  const started = Date.now() - 20 * 60_000
+  let wash: Wash | null = { load: 'Darks', dry: false, minutes: 59, startsAt: new Date(started).toISOString(), endsAt: new Date(started + 59 * 60_000).toISOString(), startedBy: 'display:demo' }
+  let emptied: Wash | null = null
+  const washState = (): WashState => ({ wash: fresh(wash), usual: { Darks: { minutes: 59, dry: false } }, now: new Date().toISOString() })
+  const fresh = <T>(v: T): T => structuredClone(v)
 
   return async (fullPath, init) => {
     const [path, query = ''] = fullPath.split('?')
     const q = new URLSearchParams(query)
     const method = (init.method ?? 'GET').toUpperCase()
     const body = (init.json ?? {}) as { done?: boolean; checked?: boolean }
-    const fresh = <T>(v: T): T => structuredClone(v)
 
     if (method === 'POST') {
+      if (path === '/wash') {
+        const b = init.json as WashStart
+        const startsAt = Date.now() + b.delayMinutes * 60_000
+        wash = { load: b.load, dry: b.dry, minutes: b.minutes, startsAt: new Date(startsAt).toISOString(), endsAt: new Date(startsAt + b.minutes * 60_000).toISOString(), startedBy: 'display:demo' }
+        return washState()
+      }
+      if (path === '/wash/adjust' && wash) {
+        const minutes = Math.max(1, wash.minutes + (init.json as { minutes: number }).minutes)
+        wash = { ...wash, minutes, endsAt: new Date(Date.parse(wash.startsAt) + minutes * 60_000).toISOString() }
+        return washState()
+      }
+      if (path === '/wash/emptied') {
+        if ((init.json as { emptied: boolean }).emptied) [emptied, wash] = [wash ?? emptied, null]
+        else if (emptied) [wash, emptied] = [emptied, null]
+        return washState()
+      }
       const done = path.match(/^\/tasks\/([^/]+)\/done$/)
       if (done) {
         const t = tasks.find((x) => x.id === done[1])
@@ -309,6 +330,8 @@ export function createDemoApi(today: () => string, hour: () => number = () => ne
       }
       case '/shopping/lists':
         return fresh(lists.map(open))
+      case '/wash':
+        return washState()
     }
     throw new ApiError(404, 'DEMO', 'Not in the demo')
   }

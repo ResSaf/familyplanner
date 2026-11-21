@@ -5,7 +5,7 @@ import { MemoryStore } from '../src/lib/memoryStore'
 import { seed } from '../src/lib/seed'
 import { setStore } from '../src/lib/store'
 import type { Ctx } from '../src/lib/http'
-import type { Caller, DisplayDevice, Item, Task } from '../src/lib/types'
+import type { Caller, DisplayDevice, Item, Task, Wash } from '../src/lib/types'
 
 /**
  * S34: the wall display's own key, so the frame needs no Microsoft sign-in.
@@ -26,8 +26,10 @@ process.env.FAMILY_ID = 'home'
 /** The two routes the key can write through: ticking a to-do, and ticking a list item (S34). */
 const DISPLAY_WRITE = 'display-tasks-done'
 const DISPLAY_ITEM_WRITE = 'display-items-checked'
+/** And the washing machine's: start, adjust, empty (5.14). */
+const DISPLAY_WASH_WRITES = ['display-wash-start', 'display-wash-adjust', 'display-wash-emptied']
 /** The same list as display.test.ts: what the wall page reads. */
-const DISPLAY_CAN_READ = ['me-get', 'people-get', 'external-events-list', 'tasks-get', 'plan-get', 'chores-get', 'weather-get', 'settings-get', 'shopping-get', 'shopping-lists-get', 'recipes-get', 'notes-get', 'note-photo-get']
+const DISPLAY_CAN_READ = ['me-get', 'people-get', 'external-events-list', 'tasks-get', 'plan-get', 'chores-get', 'weather-get', 'settings-get', 'shopping-get', 'shopping-lists-get', 'recipes-get', 'notes-get', 'note-photo-get', 'wash-get']
 const quiet = { log() {}, warn() {}, error() {} }
 const sha = (s: string) => createHash('sha256').update(s).digest('hex')
 const principal = (userId: string, email: string) =>
@@ -176,7 +178,7 @@ describe('display key: pairing', () => {
 
 describe('display key: what it opens', () => {
   it('there is a GET alias under display/ for exactly what the wall page reads', () => {
-    const aliases = registered.filter((r) => r.route.startsWith('display/') && !['display-pair', DISPLAY_WRITE, DISPLAY_ITEM_WRITE].includes(r.name) && !r.name.startsWith('display-devices'))
+    const aliases = registered.filter((r) => r.route.startsWith('display/') && !['display-pair', DISPLAY_WRITE, DISPLAY_ITEM_WRITE, ...DISPLAY_WASH_WRITES].includes(r.name) && !r.name.startsWith('display-devices'))
     expect(aliases.map((r) => r.name).sort()).toEqual(DISPLAY_CAN_READ.map(aliasFor).sort())
     for (const r of aliases) expect(r.methods).toEqual(['GET'])
   })
@@ -236,11 +238,14 @@ describe('display key: ticking a to-do, one of its two writes', () => {
     request(byName(DISPLAY_WRITE), { cookie: cookieFor(key), params: { id }, body, contentType })
   const task = (id: string) => store.get<Task>('home', id, 'task')
 
-  it('it and ticking a list item are the only display/ routes that are not a GET', () => {
+  it('it, ticking a list item and the washing machine are the only display/ routes that are not a GET', () => {
     const writes = registered.filter((r) => r.route.startsWith('display/') && r.methods[0] !== 'GET' && r.name !== 'display-pair' && !r.name.startsWith('display-devices'))
     expect(writes.map((r) => [r.name, r.methods, r.route]).sort()).toEqual([
       [DISPLAY_ITEM_WRITE, ['POST'], 'display/items/{id}/checked'],
       [DISPLAY_WRITE, ['POST'], 'display/tasks/{id}/done'],
+      ['display-wash-adjust', ['POST'], 'display/wash/adjust'],
+      ['display-wash-emptied', ['POST'], 'display/wash/emptied'],
+      ['display-wash-start', ['POST'], 'display/wash'],
     ])
   })
 
@@ -389,6 +394,46 @@ describe('display key: ticking a list item, its other write', () => {
     await revokeDisplayDevice(ctx, { id }, new URLSearchParams(), undefined)
     expect((await tick(key, 'i-1', { checked: true })).jsonBody?.code).toBe('NOT_PAIRED')
     expect((await item('i-1'))!.checked).toBe(false)
+  })
+})
+
+describe('display key: the washing machine (5.14)', () => {
+  const send = (name: string, key: string, body: unknown, contentType?: string | null) => request(byName(name), { cookie: cookieFor(key), body, contentType })
+  const wash = () => store.get<Wash>('home', 'wash', 'wash')
+
+  it('the key starts, adjusts and empties a wash, recorded as the display', async () => {
+    const { id: deviceId, key } = await newKey()
+    expect((await send('display-wash-start', key, { load: 'Darks', dry: true, minutes: 59, delayMinutes: 30 })).status).toBe(201)
+    expect(await wash()).toMatchObject({ load: 'Darks', dry: true, minutes: 59, startedBy: `display:${deviceId}`, emptiedAt: null })
+    expect((await send('display-wash-adjust', key, { minutes: 10 })).status).toBe(200)
+    expect((await wash())!.minutes).toBe(69)
+    expect((await send('display-wash-emptied', key, { emptied: true })).status).toBe(200)
+    expect(await wash()).toMatchObject({ emptiedBy: `display:${deviceId}`, updatedBy: `display:${deviceId}` })
+    expect((await request(byName('display-wash-get'), { cookie: cookieFor(key) })).jsonBody?.wash).toBeNull()
+  })
+
+  it('refuses a body not sent as JSON on all three', async () => {
+    const { key } = await newKey()
+    const bodies = [{ load: 'Darks', minutes: 59 }, { minutes: 10 }, { emptied: true }]
+    for (const [i, name] of DISPLAY_WASH_WRITES.entries()) {
+      for (const type of [null, 'text/plain', 'application/x-www-form-urlencoded']) expect((await send(name, key, bodies[i], type)).status, `${name} ${type}`).toBe(415)
+    }
+    expect(await wash()).toBeUndefined()
+  })
+
+  it('needs a key: none, a wrong one or a revoked one is NOT_PAIRED and changes nothing', async () => {
+    const { id, key } = await newKey()
+    const body = { load: 'Darks', minutes: 59 }
+    expect((await request(byName('display-wash-start'), { body })).jsonBody?.code).toBe('NOT_PAIRED')
+    expect((await send('display-wash-start', 'C'.repeat(43), body)).jsonBody?.code).toBe('NOT_PAIRED')
+    await revokeDisplayDevice(ctx, { id }, new URLSearchParams(), undefined)
+    expect((await send('display-wash-start', key, body)).jsonBody?.code).toBe('NOT_PAIRED')
+    expect(await wash()).toBeUndefined()
+  })
+
+  it('the key cannot use the members’ wash routes', async () => {
+    const { key } = await newKey()
+    for (const name of ['wash-start', 'wash-adjust', 'wash-emptied']) expect((await request(byName(name), { cookie: cookieFor(key), body: { load: 'Darks', minutes: 59 } })).status, name).toBe(401)
   })
 })
 

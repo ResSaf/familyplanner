@@ -245,8 +245,8 @@ details.done summary { cursor: pointer; padding: 0.75rem 0; color: var(--muted);
 .hello .weather-now { display: flex; flex-wrap: wrap; align-items: center; gap: 0.15rem 0.5rem; margin: 0.6rem 0 0; font-size: 1.2rem; font-weight: 600; }
 .weather-now b { font-family: var(--display); font-size: 2rem; font-weight: 800; line-height: 1.1; }
 .weather-now .muted { width: 100%; font-size: 1rem; font-weight: 400; }
-.shortcuts { display: flex; gap: 0.5rem; overflow-x: auto; margin: 0 -1rem 1.25rem; padding: 0.15rem 1rem 0.35rem; scrollbar-width: none; }
-.shortcuts a { flex: 1 1 auto; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; min-height: 40px; padding: 0 0.7rem; border-radius: 999px; background: var(--card); box-shadow: var(--shadow); color: var(--text); font-size: 0.92rem; font-weight: 600; text-decoration: none; }
+.shortcuts { display: flex; gap: 0.4rem; overflow-x: auto; margin: 0 -1rem 1.25rem; padding: 0.15rem 1rem 0.35rem; scrollbar-width: none; }
+.shortcuts a { flex: 1 1 auto; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem; min-height: 40px; padding: 0 0.5rem; border-radius: 999px; background: var(--card); box-shadow: var(--shadow); color: var(--text); font-size: 0.92rem; font-weight: 600; text-decoration: none; }
 .shortcuts .icon { color: var(--accent); }
 /* Room at the end so the add button never sits over the last row. */
 .dash { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; padding-bottom: 4.5rem; }
@@ -417,6 +417,7 @@ details.done summary { cursor: pointer; padding: 0.75rem 0; color: var(--muted);
 .chore + .chore { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--line); }
 .chore-name { display: flex; align-items: center; gap: 0.25rem; margin-bottom: 0.3rem; font-weight: 600; }
 .chore-name .grow { overflow-wrap: anywhere; }
+.chore-repeat { font-weight: 400; }
 .chore-name .icon-btn { width: 36px; height: 36px; margin-right: -0.4rem; }
 
 /* Family notes */
@@ -623,3 +624,73 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
 .wall-chip-allday { color: #fff; border-radius: 5px; padding: 0 0.35rem; font-weight: 600; }
 .wall-chip .wall-dot { width: 0.5rem; height: 0.5rem; margin-right: 0.3rem; }
 .wall-cell-more { font-size: 0.85rem; color: var(--muted); font-weight: 600; }
+
+/* The washer-dryer (5.14). Ready is a fixed red in both themes, so it reads the same across the kitchen. */
+:root { --wash-ready: #c0392b; --wash-waiting: #8e1b10; }
+.shortcuts button { flex: 1 1 auto; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem; min-height: 40px; padding: 0 0.5rem; border: 0; border-radius: 999px; background: var(--card); box-shadow: var(--shadow); color: var(--text); font: inherit; font-size: 0.92rem; font-weight: 600; cursor: pointer; }
+
+.wash-form { display: flex; flex-direction: column; gap: 0.9rem; }
+.wash-form fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.wash-form fieldset:disabled { opacity: 0.45; }
+.wash-form legend { padding: 0; margin-bottom: 0.35rem; font-size: 0.85rem; font-weight: 700; color: var(--muted); }
+.wash-quick { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: -0.4rem; }
+.wash-chip { min-height: 40px; padding: 0 0.9rem; border-radius: 999px; border: 0; background: var(--sunk); color: var(--text); font: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+.wash-chip.on { background: var(--accent); color: var(--on-accent); }
+.wash-chip:disabled { opacity: 0.45; cursor: default; }
+.wash-step { min-height: 40px; min-width: 44px; padding: 0 0.7rem; border-radius: var(--radius-sm); border: 0; background: var(--sunk); color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
+.wash-length { min-width: 5.5rem; text-align: center; font-family: var(--display); font-size: 1.3rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.wash-start { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; min-height: 48px; padding: 0 1.2rem; border: 0; border-radius: 999px; background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 700; cursor: pointer; }
+.wash-start:disabled { opacity: 0.45; cursor: default; }
+.wash-error { margin: 0.5rem 0 0; color: var(--danger); font-weight: 600; }
+
+.wash-card .section-title { display: flex; align-items: center; gap: 0.4rem; }
+.wash-what { font-weight: 700; }
+.wash-big { font-family: var(--display); font-size: 1.6rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.wash-bar, .wall-wash-bar { width: 100%; height: 8px; margin: 0.4rem 0; border-radius: 999px; background: var(--sunk); overflow: hidden; }
+.wash-bar span, .wall-wash-bar span { display: block; height: 100%; background: var(--accent); }
+.wash-meta { margin: 0.25rem 0 0.75rem; color: var(--muted); font-size: 0.9rem; }
+.wash-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.wash-card-done, .wash-card-overdue { background: var(--wash-ready); color: #fff; }
+.wash-card-overdue { background: var(--wash-waiting); animation: wash-pulse 2s ease-in-out infinite; }
+:is(.wash-card-done, .wash-card-overdue) :is(.wash-meta, .section-title) { color: #fff; }
+:is(.wash-card-done, .wash-card-overdue) .wash-start { background: #fff; color: var(--wash-waiting); }
+@keyframes wash-pulse { 50% { box-shadow: 0 0 0 6px rgba(192, 57, 43, 0.45); } }
+
+/* On the wall: a button after Notes, and a panel sized for 1280×800 and fingers. */
+.wall-wash-on { color: var(--accent); font-variant-numeric: tabular-nums; }
+.wall-top .wall-wash-ready { margin-left: auto; }
+.wall-wash-ready { display: inline-flex; align-items: center; gap: 0.7rem; min-height: 88px; min-width: 0; padding: 0 1rem 0 0.8rem; border: 0; border-radius: var(--radius); background: var(--wash-ready); color: #fff; font: inherit; text-align: left; cursor: pointer; flex-shrink: 0; touch-action: manipulation; animation: wall-wash-flash 2s steps(1) infinite; }
+.wall-wash-ready span { display: flex; flex-direction: column; line-height: 1.15; }
+.wall-wash-ready b { font-size: 1.35rem; white-space: nowrap; }
+.wall-wash-ready small { font-size: 1rem; font-weight: 600; opacity: 0.95; white-space: nowrap; }
+.wall-wash-overdue { background: var(--wash-waiting); animation: wash-pulse 1.5s ease-in-out infinite; }
+@keyframes wall-wash-flash { 50% { background: #e05a47; } }
+
+.wall-wash { gap: 0.9rem; padding: 1.25rem 2rem; }
+.wall-wash-form { width: 100%; display: flex; flex-direction: column; gap: 0.7rem; }
+.wall-wash-form fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; align-items: center; gap: 0.6rem; }
+.wall-wash-form fieldset:disabled { opacity: 0.35; }
+.wall-wash-form legend { padding: 0; margin-bottom: 0.3rem; font-size: 1.05rem; font-weight: 700; color: var(--muted); }
+.wall-wash-loads .wall-wash-chip { flex: 1 1 0; padding: 0 0.3rem; }
+.wall-wash-quick { display: flex; gap: 0.6rem; }
+.wall-wash-quick .wall-wash-chip { flex: 1 1 0; min-height: 56px; }
+.wall-wash-chip { min-height: 64px; padding: 0 1.2rem; border: 2px solid var(--accent); border-radius: var(--radius); background: var(--accent-soft); color: var(--accent); font: inherit; font-size: 1.3rem; font-weight: 800; white-space: nowrap; cursor: pointer; touch-action: manipulation; }
+.wall-wash-chip.on { background: var(--accent); color: var(--on-accent); }
+.wall-wash-chip:disabled { opacity: 0.35; cursor: default; }
+.wall-wash-step { min-height: 64px; min-width: 88px; padding: 0 1rem; border: 0; border-radius: var(--radius); background: var(--sunk); color: var(--text); font: inherit; font-family: var(--display); font-size: 1.5rem; font-weight: 800; cursor: pointer; touch-action: manipulation; }
+.wall-wash-step:disabled { opacity: 0.35; }
+.wall-wash-length { flex: 1; text-align: center; font-family: var(--display); font-size: 2.6rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.wall-wash-start { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 80px; padding: 0 2.5rem; border: 0; border-radius: 999px; background: var(--accent); color: var(--on-accent); font: inherit; font-size: 1.8rem; font-weight: 800; cursor: pointer; touch-action: manipulation; }
+.wall-wash-start:disabled { opacity: 0.35; cursor: default; }
+.wall-wash-error { margin: 0; color: var(--danger); font-size: 1.2rem; font-weight: 700; }
+.wall-wash-detail { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; padding: 1.5rem; border-radius: var(--radius); }
+.wall-wash-what { font-size: 2rem; font-weight: 800; }
+.wall-wash-big { font-family: var(--display); font-size: 4.5rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; text-align: center; }
+.wall-wash-bar { height: 14px; }
+.wall-wash-meta { margin: 0; font-size: 1.3rem; color: var(--muted); text-align: center; }
+.wall-wash-actions { display: flex; gap: 1rem; }
+.wall-wash-done, .wall-wash-overdue { color: #fff; }
+.wall-wash-detail.wall-wash-done { background: var(--wash-ready); }
+.wall-wash-detail.wall-wash-overdue { background: var(--wash-waiting); }
+:is(.wall-wash-done, .wall-wash-overdue) .wall-wash-meta { color: #fff; }
+.wall-wash-detail:is(.wall-wash-done, .wall-wash-overdue) .wall-wash-start { background: #fff; color: var(--wash-waiting); }

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { isValidDate } from './dates'
-import { CATEGORIES, IMAGE_TYPES } from './types'
+import { CATEGORIES, IMAGE_TYPES, LOADS } from './types'
 
 /**
  * Every request body passes through one of these before use (S13). Zod's
@@ -84,8 +84,27 @@ export const docPageSchema = z.object({ contentType: z.enum(IMAGE_TYPES), data: 
 /** A note's photo is shrunk in the browser as a document page is, and capped the same. */
 export const notePhotoSchema = docPageSchema
 
-export const choreSchema = z.object({ name: title })
+/** A chore comes round every `everyWeeks` weeks, counted from the Monday of `fromWeek` (R1). Weekly is 1, the default. */
+export const choreSchema = z.object({
+  name: title,
+  everyWeeks: z.number().int().min(1).max(52).optional(),
+  fromWeek: dateStr.optional(),
+})
 export const choreAssignSchema = z.object({ memberId: id })
+
+/** Starting the washer-dryer (5.14), from the app or the wall. Nothing here is free text. */
+export const washStartSchema = z.object({
+  load: z.enum(LOADS),
+  dry: z.boolean().default(false),
+  /** The whole programme, as the machine shows it. */
+  minutes: z.number().int().min(1).max(600),
+  /** The machine's delay start: how long until it begins. */
+  delayMinutes: z.number().int().min(0).max(24 * 60).default(0),
+})
+/** The machine said something different: lengthen or shorten the wash, never below a minute. */
+export const washAdjustSchema = z.object({ minutes: z.number().int().min(-120).max(120).refine((m) => m !== 0, 'Must not be zero') })
+/** Emptied, or Undo. */
+export const washEmptiedSchema = z.object({ emptied: z.boolean() })
 
 export const settingsPatchSchema = z.object({
   breakfastEnabled: z.boolean().optional(),

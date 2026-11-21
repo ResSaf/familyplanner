@@ -153,6 +153,16 @@ export interface DocPageImage {
 export interface Chore {
   id: string
   name: string
+  /** Comes round every this many weeks (R1). Missing or 1 means weekly. */
+  everyWeeks?: number
+  /** A Monday on which it is due, when it isn't weekly. */
+  fromWeek?: string
+  /** On a chore not due in the week asked for: the next week it is. */
+  nextWeek?: string
+}
+export interface ChoreRepeat {
+  everyWeeks: number
+  fromWeek?: string
 }
 export interface ChoreAssignment {
   choreId: string
@@ -161,6 +171,8 @@ export interface ChoreAssignment {
 export interface ChoreSchedule {
   chores: Chore[]
   assignments: ChoreAssignment[]
+  /** Chores that don't come round in this week, for the Chores page to list and edit. */
+  notDue?: Chore[]
 }
 
 export interface WeatherDay {
@@ -179,4 +191,29 @@ export interface Weather {
 export interface Settings {
   breakfastEnabled: boolean
   defaultListId?: string
+}
+
+/** What can go in the washer-dryer (5.14). The same list as the API's. */
+export const LOADS = ['Lights', 'Darks', 'Colours', 'Whites', 'Towels', 'Bedding', 'Delicates', 'Mixed'] as const
+export type Load = (typeof LOADS)[number]
+export interface Wash {
+  load: Load
+  /** Washed and dried in one go. */
+  dry: boolean
+  minutes: number
+  startsAt: string
+  endsAt: string
+  startedBy: string
+}
+export interface WashState {
+  wash: Wash | null
+  usual: Partial<Record<Load, { minutes: number; dry: boolean }>>
+  /** The server's clock when it answered. */
+  now: string
+}
+export interface WashStart {
+  load: Load
+  dry: boolean
+  minutes: number
+  delayMinutes: number
 }

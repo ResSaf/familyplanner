@@ -1,6 +1,6 @@
 /** `display` is the wall screen: it may only read what the dashboard shows (section 4). */
 export type Role = 'admin' | 'member' | 'display'
-export type DocType = 'member' | 'event' | 'list' | 'item' | 'task' | 'meal' | 'plan' | 'settings' | 'recipe' | 'chore' | 'choreWeek' | 'displayDevice' | 'note' | 'notePhoto' | 'document' | 'docPage'
+export type DocType = 'member' | 'event' | 'list' | 'item' | 'task' | 'meal' | 'plan' | 'settings' | 'recipe' | 'chore' | 'choreWeek' | 'displayDevice' | 'note' | 'notePhoto' | 'document' | 'docPage' | 'wash'
 export type Slot = 'breakfast' | 'lunch' | 'dinner'
 export const SLOTS: Slot[] = ['breakfast', 'lunch', 'dinner']
 export const CATEGORIES = ['Produce', 'Dairy', 'Bakery', 'Household', 'Other'] as const
@@ -89,6 +89,10 @@ export interface Recipe extends BaseDoc {
 export interface Chore extends BaseDoc {
   type: 'chore'
   name: string
+  /** Comes round every this many weeks (R1). Missing means weekly. */
+  everyWeeks?: number
+  /** A Monday on which it is due; with `everyWeeks`, fixes which weeks those are. */
+  fromWeek?: string
 }
 
 /** Who has a chore in one week. At most one per chore per week, because the id is built from both. */
@@ -162,10 +166,35 @@ export interface DocPage extends BaseDoc {
   data: string
 }
 
+/** What's in the washing machine, as the wall and app offer it (5.14). A fixed list, so the wall key never sends free text. */
+export const LOADS = ['Lights', 'Darks', 'Colours', 'Whites', 'Towels', 'Bedding', 'Delicates', 'Mixed'] as const
+export type Load = (typeof LOADS)[number]
+
+/**
+ * The washer-dryer (5.14): one machine, so one record, id `wash`. Starting a wash replaces the last one.
+ * Emptying keeps the record, so Undo can bring it back and each load's usual length is remembered.
+ */
+export interface Wash extends BaseDoc {
+  type: 'wash'
+  id: 'wash'
+  load: Load
+  /** Washing then drying, in one go. Only a label: `minutes` is the whole programme. */
+  dry: boolean
+  minutes: number
+  /** Later than createdAt when the machine's delay start was used. */
+  startsAt: string
+  endsAt: string
+  startedBy: string
+  emptiedAt: string | null
+  emptiedBy: string | null
+  /** Each load's last length and whether it was dried, offered first next time. */
+  usual: Partial<Record<Load, { minutes: number; dry: boolean }>>
+}
+
 export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
 export type ImageType = (typeof IMAGE_TYPES)[number]
 
-export type AnyDoc = Member | List | Item | Task | Meal | PlanEntry | Recipe | Chore | ChoreWeek | Settings | DisplayDevice | Note | NotePhoto | FamilyDocument | DocPage
+export type AnyDoc = Member | List | Item | Task | Meal | PlanEntry | Recipe | Chore | ChoreWeek | Settings | DisplayDevice | Note | NotePhoto | FamilyDocument | DocPage | Wash
 
 export interface Caller {
   memberId: string
