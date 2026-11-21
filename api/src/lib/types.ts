@@ -169,17 +169,24 @@ export interface DocPage extends BaseDoc {
 /** What's in the washing machine, as the wall and app offer it (5.14). A fixed list, so the wall key never sends free text. */
 export const LOADS = ['Lights', 'Darks', 'Colours', 'Whites', 'Towels', 'Bedding', 'Delicates', 'Mixed'] as const
 export type Load = (typeof LOADS)[number]
+/** The washer-dryer's programmes: wash, wash then dry in one go, or only dry. */
+export const PROGRAMMES = ['wash', 'wash-dry', 'dry'] as const
+export type Programme = (typeof PROGRAMMES)[number]
 
 /**
  * The washer-dryer (5.14): one machine, so one record, id `wash`. Starting a wash replaces the last one.
- * Emptying keeps the record, so Undo can bring it back and each load's usual length is remembered.
+ * Emptying keeps the record, so each load's usual length is remembered.
+ * There is always a load in the machine; only its length is needed. What kind of clothes it is, and whether it is
+ * washed, washed and dried or only dried, are extras. Records from before the programme had
+ * `dry: boolean` instead, read as wash or wash & dry.
  */
 export interface Wash extends BaseDoc {
   type: 'wash'
   id: 'wash'
-  load: Load
-  /** Washing then drying, in one go. Only a label: `minutes` is the whole programme. */
-  dry: boolean
+  /** The kind of clothes, or null when not said. */
+  load: Load | null
+  /** Only a label: `minutes` is the whole programme. */
+  programme: Programme
   minutes: number
   /** Later than createdAt when the machine's delay start was used. */
   startsAt: string
@@ -187,8 +194,8 @@ export interface Wash extends BaseDoc {
   startedBy: string
   emptiedAt: string | null
   emptiedBy: string | null
-  /** Each load's last length and whether it was dried, offered first next time. */
-  usual: Partial<Record<Load, { minutes: number; dry: boolean }>>
+  /** Each load's last length and programme, offered first next time. */
+  usual: Partial<Record<Load, { minutes: number; programme: Programme }>>
 }
 
 export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const

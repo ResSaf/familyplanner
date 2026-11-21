@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { mutations, useWash } from '../api/hooks'
-import { LOADS, type Load, type WashStart, type WashState } from '../api/types'
+import { LOADS, PROGRAMMES, type Load, type Programme, type WashStart, type WashState } from '../api/types'
 import { fmtTime } from '../lib/dates'
-import { DELAY_HOURS, delayMinutes, fmtDuration, fmtHoursEntry, HOURS_ENTRY_DIGITS, hoursEntryMinutes, MAX_WASH_MINUTES, serverNow, usualFor, WASH_MINUTES, washLabel, washStatus, washSummary, type WashStatus } from '../lib/wash'
+import { DEFAULT_MINUTES, DELAY_HOURS, delayMinutes, PROGRAMME_LABELS, startLabel, fmtDuration, fmtHoursEntry, HOURS_ENTRY_DIGITS, hoursEntryMinutes, MAX_WASH_MINUTES, serverNow, usualFor, WASH_MINUTES, washLabel, washStatus, washSummary, type WashStatus } from '../lib/wash'
 import { Icon } from './Icons'
 import { Modal } from './Modal'
 import { usePersonMap } from './People'
@@ -67,54 +67,45 @@ export function useStartedBy() {
 const hoursLabel = (h: number) => `${h}h`
 
 /**
- * Choosing what's going in: the load, wash or wash & dry, the length (its last one offered first) and, if the
- * machine's delay is used, when it starts or is ready. A few taps, no typing, so it suits the wall as well as a phone.
- * A long programme's length can be typed on a keypad, opened by tapping the length.
+ * Starting a wash. Only the length is needed, so it comes first and Start works straight away. The programme
+ * defaults to a wash; the kind of clothes and a delay start are extras, marked optional. A few taps, no typing, so it
+ * suits the wall as well as a phone. A long programme's length can be typed on a keypad, opened by tapping the length.
  */
 export function WashStartForm({ state, busy, onStart, wall = false }: { state?: State; busy: boolean; onStart: (body: WashStart) => void; wall?: boolean }) {
-  const [load, setLoad] = useState<Load>()
-  const [dry, setDry] = useState(false)
-  const [minutes, setMinutes] = useState(60)
+  const [load, setLoad] = useState<Load | null>(null)
+  const [programme, setProgramme] = useState<Programme>('wash')
+  const [minutes, setMinutes] = useState(DEFAULT_MINUTES)
+  /** Once the length or programme is set by hand, picking a load no longer changes it. */
+  const [lengthSet, setLengthSet] = useState(false)
+  const [programmeSet, setProgrammeSet] = useState(false)
   const [delayMode, setDelayMode] = useState<'now' | 'start' | 'ready'>('now')
   const [delayHours, setDelayHours] = useState(DELAY_HOURS[2])
   /** Digits typed on the keypad, which opens only from tapping the length. Null while it's closed. */
   const [typing, setTyping] = useState<string | null>(null)
 
+  /** Picks the kind of clothes, offering its usual length and programme; tapping it again un-picks it. */
   const choose = (l: Load) => {
+    if (load === l) return setLoad(null)
     const usual = usualFor(state, l)
     setLoad(l)
-    setDry(usual.dry)
-    setMinutes(usual.minutes)
+    if (!lengthSet) setMinutes(usual.minutes)
+    if (!programmeSet) setProgramme(usual.programme)
+  }
+  const setLength = (m: number) => {
+    setMinutes(m)
+    setLengthSet(true)
   }
   const delay = delayMode === 'now' ? 0 : delayMinutes(delayMode, delayHours * 60, minutes)
-  const step = (by: number) => setMinutes((m) => Math.min(MAX_WASH_MINUTES, Math.max(1, m + by)))
+  const step = (by: number) => setLength(Math.min(MAX_WASH_MINUTES, Math.max(1, minutes + by)))
   const typed = typing === null ? 0 : hoursEntryMinutes(typing)
   const typedOk = typed >= 1 && typed <= MAX_WASH_MINUTES
   const key = (d: string) => setTyping((cur) => ((cur ?? '') + d).replace(/^0+/, '').slice(0, HOURS_ENTRY_DIGITS))
   const p = wall ? 'wall-wash' : 'wash'
   const chip = (on: boolean) => `${p}-chip${on ? ' on' : ''}`
+  const optional = <span className={`${p}-optional`}> · optional</span>
 
   return (
     <div className={`${p}-form`}>
-      <fieldset className={`${p}-loads`}>
-        <legend>What's in it?</legend>
-        {LOADS.map((l) => (
-          <button key={l} type="button" className={chip(load === l)} aria-pressed={load === l} onClick={() => choose(l)}>
-            {l}
-          </button>
-        ))}
-      </fieldset>
-
-      <fieldset className={`${p}-row`} disabled={!load}>
-        <legend>Programme</legend>
-        <button type="button" className={chip(!dry)} aria-pressed={!dry} onClick={() => setDry(false)}>
-          Wash
-        </button>
-        <button type="button" className={chip(dry)} aria-pressed={dry} onClick={() => setDry(true)}>
-          Wash &amp; dry
-        </button>
-      </fieldset>
-
       {typing !== null ? (
         // Any length, for the long programmes the steps and chips don't reach: hours and minutes, filling from the right.
         <fieldset className={`${p}-row ${p}-typing`}>
@@ -133,7 +124,7 @@ export function WashStartForm({ state, busy, onStart, wall = false }: { state?: 
                 className={`${p}-start`}
                 disabled={!typedOk}
                 onClick={() => {
-                  setMinutes(typed)
+                  setLength(typed)
                   setTyping(null)
                 }}
               >
@@ -160,7 +151,7 @@ export function WashStartForm({ state, busy, onStart, wall = false }: { state?: 
         </fieldset>
       ) : (
         <>
-          <fieldset className={`${p}-row`} disabled={!load}>
+          <fieldset className={`${p}-row`}>
             <legend>How long, as the machine shows</legend>
             <button type="button" className={`${p}-step`} aria-label="5 minutes less" onClick={() => step(-5)}>−5</button>
             <button type="button" className={`${p}-step`} aria-label="1 minute less" onClick={() => step(-1)}>−1</button>
@@ -173,47 +164,72 @@ export function WashStartForm({ state, busy, onStart, wall = false }: { state?: 
           </fieldset>
           <div className={`${p}-row ${p}-quick`}>
             {WASH_MINUTES.map((m) => (
-              <button key={m} type="button" className={chip(minutes === m)} disabled={!load} onClick={() => setMinutes(m)}>
+              <button key={m} type="button" className={chip(minutes === m)} onClick={() => setLength(m)}>
                 {m < 60 ? `${m} min` : hoursLabel(m / 60)}
               </button>
             ))}
           </div>
+
+          <fieldset className={`${p}-row ${p}-extra`}>
+            <legend>Programme</legend>
+            {PROGRAMMES.map((pr) => (
+              <button
+                key={pr}
+                type="button"
+                className={chip(programme === pr)}
+                aria-pressed={programme === pr}
+                onClick={() => {
+                  setProgramme(pr)
+                  setProgrammeSet(true)
+                }}
+              >
+                {PROGRAMME_LABELS[pr]}
+              </button>
+            ))}
+          </fieldset>
+
+          <fieldset className={`${p}-loads ${p}-extra`}>
+            <legend>What's in it?{optional}</legend>
+            {LOADS.map((l) => (
+              <button key={l} type="button" className={chip(load === l)} aria-pressed={load === l} onClick={() => choose(l)}>
+                {l}
+              </button>
+            ))}
+          </fieldset>
+
+          <fieldset className={`${p}-row ${p}-extra`}>
+            <legend>Delay start{optional}</legend>
+            <button type="button" className={chip(delayMode === 'now')} aria-pressed={delayMode === 'now'} onClick={() => setDelayMode('now')}>
+              Starting now
+            </button>
+            <button type="button" className={chip(delayMode === 'start')} aria-pressed={delayMode === 'start'} onClick={() => setDelayMode('start')}>
+              Starts in…
+            </button>
+            <button type="button" className={chip(delayMode === 'ready')} aria-pressed={delayMode === 'ready'} onClick={() => setDelayMode('ready')}>
+              Ready in…
+            </button>
+          </fieldset>
+          {delayMode !== 'now' && (
+            <div className={`${p}-row ${p}-quick ${p}-extra`}>
+              {DELAY_HOURS.map((h) => (
+                <button key={h} type="button" className={chip(delayHours === h)} onClick={() => setDelayHours(h)}>
+                  {hoursLabel(h)}
+                </button>
+              ))}
+            </div>
+          )}
+          {delay === null && <p className={`${p}-error`}>Ready in {delayHours}h is sooner than it takes.</p>}
+
+          <button
+            type="button"
+            className={`${p}-start`}
+            disabled={delay === null || busy}
+            onClick={() => delay !== null && onStart({ load, programme, minutes, delayMinutes: delay })}
+          >
+            {startLabel({ load, programme })}
+          </button>
         </>
       )}
-
-      {typing === null && (
-      <fieldset className={`${p}-row`} disabled={!load}>
-        <legend>Delay</legend>
-        <button type="button" className={chip(delayMode === 'now')} aria-pressed={delayMode === 'now'} onClick={() => setDelayMode('now')}>
-          Starting now
-        </button>
-        <button type="button" className={chip(delayMode === 'start')} aria-pressed={delayMode === 'start'} onClick={() => setDelayMode('start')}>
-          Starts in…
-        </button>
-        <button type="button" className={chip(delayMode === 'ready')} aria-pressed={delayMode === 'ready'} onClick={() => setDelayMode('ready')}>
-          Ready in…
-        </button>
-      </fieldset>
-      )}
-      {typing === null && delayMode !== 'now' && (
-        <div className={`${p}-row ${p}-quick`}>
-          {DELAY_HOURS.map((h) => (
-            <button key={h} type="button" className={chip(delayHours === h)} onClick={() => setDelayHours(h)}>
-              {hoursLabel(h)}
-            </button>
-          ))}
-        </div>
-      )}
-      {delay === null && <p className={`${p}-error`}>Ready in {delayHours}h is sooner than the wash takes.</p>}
-
-      <button
-        type="button"
-        className={`${p}-start`}
-        disabled={!load || delay === null || busy || typing !== null}
-        onClick={() => load && delay !== null && onStart({ load, dry, minutes, delayMinutes: delay })}
-      >
-        {load ? `Start ${washLabel({ load, dry })}` : 'Choose what’s in it'}
-      </button>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { fmtDuration, fmtReadyFor } from '../lib/wash'
+import { fmtDuration, fmtReadyFor, washLabel } from '../lib/wash'
 import { Icon } from './Icons'
 import { useWashActions, useWashNow, WashDetail, WashStartForm } from './Wash'
 
@@ -34,12 +34,13 @@ export function useWallWash(): { button: ReactNode; alert: ReactNode; panel: Rea
     </button>
   )
   const alert = ready && state?.wash && (
-    <button type="button" className={`wall-wash-ready wall-wash-${phase}`} aria-label={`Wash ready: ${state.wash.load}. Open`} onClick={() => setOpen(true)}>
+    <button type="button" className={`wall-wash-ready wall-wash-${phase}`} aria-label={`Washing ready: ${washLabel(state.wash)}. Open`} onClick={() => setOpen(true)}>
       <Icon name="washer" size={34} />
       <span>
-        <b>{phase === 'overdue' ? 'Wash waiting' : 'Wash ready'}</b>
+        {/* "Washing", not "Wash": it may have only been dried. */}
+        <b>{phase === 'overdue' ? 'Washing waiting' : 'Washing ready'}</b>
         <small>
-          {state.wash.load} · {fmtReadyFor(status!.readyForMs)}
+          {washLabel(state.wash)} · {fmtReadyFor(status!.readyForMs)}
         </small>
       </span>
     </button>
