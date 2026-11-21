@@ -196,10 +196,13 @@ export interface Settings {
 /** What can go in the washer-dryer (5.14). The same list as the API's. */
 export const LOADS = ['Lights', 'Darks', 'Colours', 'Whites', 'Towels', 'Bedding', 'Delicates', 'Mixed'] as const
 export type Load = (typeof LOADS)[number]
+/** Wash, wash then dry in one go, or only dry. */
+export const PROGRAMMES = ['wash', 'wash-dry', 'dry'] as const
+export type Programme = (typeof PROGRAMMES)[number]
 export interface Wash {
-  load: Load
-  /** Washed and dried in one go. */
-  dry: boolean
+  /** The kind of clothes, or null when not said: only the length is needed. */
+  load: Load | null
+  programme: Programme
   minutes: number
   startsAt: string
   endsAt: string
@@ -207,13 +210,13 @@ export interface Wash {
 }
 export interface WashState {
   wash: Wash | null
-  usual: Partial<Record<Load, { minutes: number; dry: boolean }>>
+  usual: Partial<Record<Load, { minutes: number; programme: Programme }>>
   /** The server's clock when it answered. */
   now: string
 }
 export interface WashStart {
-  load: Load
-  dry: boolean
+  load: Load | null
+  programme: Programme
   minutes: number
   delayMinutes: number
 }

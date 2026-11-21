@@ -256,8 +256,8 @@ export function createDemoApi(today: () => string, hour: () => number = () => ne
   const lists = demoLists()
   // A wash on the go, so the demo shows the machine too. Changed only in the demo's own copy.
   const started = Date.now() - 20 * 60_000
-  let wash: Wash | null = { load: 'Darks', dry: false, minutes: 59, startsAt: new Date(started).toISOString(), endsAt: new Date(started + 59 * 60_000).toISOString(), startedBy: 'display:demo' }
-  const washState = (): WashState => ({ wash: fresh(wash), usual: { Darks: { minutes: 59, dry: false } }, now: new Date().toISOString() })
+  let wash: Wash | null = { load: 'Darks', programme: 'wash', minutes: 59, startsAt: new Date(started).toISOString(), endsAt: new Date(started + 59 * 60_000).toISOString(), startedBy: 'display:demo' }
+  const washState = (): WashState => ({ wash: fresh(wash), usual: { Darks: { minutes: 59, programme: 'wash' } }, now: new Date().toISOString() })
   const fresh = <T>(v: T): T => structuredClone(v)
 
   return async (fullPath, init) => {
@@ -270,7 +270,7 @@ export function createDemoApi(today: () => string, hour: () => number = () => ne
       if (path === '/wash') {
         const b = init.json as WashStart
         const startsAt = Date.now() + b.delayMinutes * 60_000
-        wash = { load: b.load, dry: b.dry, minutes: b.minutes, startsAt: new Date(startsAt).toISOString(), endsAt: new Date(startsAt + b.minutes * 60_000).toISOString(), startedBy: 'display:demo' }
+        wash = { load: b.load, programme: b.programme, minutes: b.minutes, startsAt: new Date(startsAt).toISOString(), endsAt: new Date(startsAt + b.minutes * 60_000).toISOString(), startedBy: 'display:demo' }
         return washState()
       }
       if (path === '/wash/adjust' && wash) {

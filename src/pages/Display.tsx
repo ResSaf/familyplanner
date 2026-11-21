@@ -458,7 +458,7 @@ function WallWeather({ weather, today }: { weather: Weather; today: string }) {
   const day = days.find((d) => d.date === today)
   return (
     <div className="wall-weather">
-      <Icon name={icon} size={56} />
+      <Icon name={icon} size={48} />
       <div>
         <div className="wall-temp">
           {degrees(current.temperature)} <span>{label}</span>

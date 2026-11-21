@@ -403,8 +403,8 @@ describe('display key: the washing machine (5.14)', () => {
 
   it('the key starts, adjusts and empties a wash, recorded as the display', async () => {
     const { id: deviceId, key } = await newKey()
-    expect((await send('display-wash-start', key, { load: 'Darks', dry: true, minutes: 59, delayMinutes: 30 })).status).toBe(201)
-    expect(await wash()).toMatchObject({ load: 'Darks', dry: true, minutes: 59, startedBy: `display:${deviceId}`, emptiedAt: null })
+    expect((await send('display-wash-start', key, { load: 'Darks', programme: 'dry', minutes: 59, delayMinutes: 30 })).status).toBe(201)
+    expect(await wash()).toMatchObject({ load: 'Darks', programme: 'dry', minutes: 59, startedBy: `display:${deviceId}`, emptiedAt: null })
     expect((await send('display-wash-adjust', key, { minutes: 10 })).status).toBe(200)
     expect((await wash())!.minutes).toBe(69)
     expect((await send('display-wash-emptied', key, { emptied: true })).status).toBe(200)

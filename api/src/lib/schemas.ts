@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { isValidDate } from './dates'
-import { CATEGORIES, IMAGE_TYPES, LOADS } from './types'
+import { CATEGORIES, IMAGE_TYPES, LOADS, PROGRAMMES } from './types'
 
 /**
  * Every request body passes through one of these before use (S13). Zod's
@@ -92,15 +92,19 @@ export const choreSchema = z.object({
 })
 export const choreAssignSchema = z.object({ memberId: id })
 
-/** Starting the washer-dryer (5.14), from the app or the wall. Nothing here is free text. */
-export const washStartSchema = z.object({
-  load: z.enum(LOADS),
-  dry: z.boolean().default(false),
-  /** The whole programme, as the machine shows it. */
-  minutes: z.number().int().min(1).max(24 * 60),
-  /** The machine's delay start: how long until it begins. */
-  delayMinutes: z.number().int().min(0).max(24 * 60).default(0),
-})
+/** Starting the washer-dryer (5.14), from the app or the wall. Only the length is needed. Nothing here is free text. */
+export const washStartSchema = z
+  .object({
+    load: z.enum(LOADS).nullable().default(null),
+    programme: z.enum(PROGRAMMES).optional(),
+    /** What a page loaded before the programme sends instead: true for wash & dry. */
+    dry: z.boolean().optional(),
+    /** The whole programme, as the machine shows it. */
+    minutes: z.number().int().min(1).max(24 * 60),
+    /** The machine's delay start: how long until it begins. */
+    delayMinutes: z.number().int().min(0).max(24 * 60).default(0),
+  })
+  .transform(({ dry, programme, ...rest }) => ({ ...rest, programme: programme ?? (dry ? ('wash-dry' as const) : ('wash' as const)) }))
 /** The machine said something different: lengthen or shorten the wash, never below a minute. */
 export const washAdjustSchema = z.object({ minutes: z.number().int().min(-120).max(120).refine((m) => m !== 0, 'Must not be zero') })
 /** Emptied. There is no un-emptying. */

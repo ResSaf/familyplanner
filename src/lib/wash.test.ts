@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { Wash } from '../api/types'
-import { delayMinutes, fmtDuration, fmtHoursEntry, hoursEntryMinutes, OVERDUE_AFTER_MS, serverNow, usualFor, washLabel, washStatus, washSummary } from './wash'
+import { delayMinutes, fmtDuration, startLabel, fmtHoursEntry, hoursEntryMinutes, OVERDUE_AFTER_MS, serverNow, usualFor, washLabel, washStatus, washSummary } from './wash'
 
-const wash: Wash = { load: 'Darks', dry: false, minutes: 60, startsAt: '2026-11-21T10:00:00Z', endsAt: '2026-11-21T11:00:00Z', startedBy: 'm-tim' }
+const wash: Wash = { load: 'Darks', programme: 'wash', minutes: 60, startsAt: '2026-11-21T10:00:00Z', endsAt: '2026-11-21T11:00:00Z', startedBy: 'm-tim' }
 const t = (iso: string) => Date.parse(iso)
 
 describe('washStatus', () => {
@@ -20,9 +20,18 @@ describe('washStatus', () => {
 })
 
 describe('wording', () => {
-  it('labels a wash and dry', () => {
+  it('labels each programme, with or without the kind of clothes', () => {
     expect(washLabel(wash)).toBe('Darks')
-    expect(washLabel({ ...wash, dry: true })).toBe('Darks, wash & dry')
+    expect(washLabel({ ...wash, programme: 'wash-dry' })).toBe('Darks, wash & dry')
+    expect(washLabel({ ...wash, programme: 'dry' })).toBe('Darks, dry only')
+    expect(washLabel({ load: null, programme: 'wash' })).toBe('Wash')
+    expect(washLabel({ load: null, programme: 'wash-dry' })).toBe('Wash & dry')
+    expect(washLabel({ load: null, programme: 'dry' })).toBe('Dry only')
+  })
+  it('words the start button', () => {
+    expect(startLabel({ load: null, programme: 'wash' })).toBe('Start wash')
+    expect(startLabel({ load: null, programme: 'dry' })).toBe('Start drying')
+    expect(startLabel({ load: 'Towels', programme: 'wash-dry' })).toBe('Start Towels, wash & dry')
   })
   it('rounds time left up, so it reads 0 only when done', () => {
     expect(fmtDuration(30_001)).toBe('1 min')
@@ -46,8 +55,8 @@ describe('the clock', () => {
 
 describe('starting', () => {
   it('offers a load’s last length, else a first guess', () => {
-    expect(usualFor({ usual: { Darks: { minutes: 59, dry: true } } }, 'Darks')).toEqual({ minutes: 59, dry: true })
-    expect(usualFor({ usual: {} }, 'Towels')).toEqual({ minutes: 90, dry: false })
+    expect(usualFor({ usual: { Darks: { minutes: 59, programme: 'wash-dry' } } }, 'Darks')).toEqual({ minutes: 59, programme: 'wash-dry' })
+    expect(usualFor({ usual: {} }, 'Towels')).toEqual({ minutes: 90, programme: 'wash' })
     expect(usualFor(undefined, 'Delicates').minutes).toBe(45)
   })
   it('turns "ready in" into a start delay, refusing one shorter than the wash', () => {

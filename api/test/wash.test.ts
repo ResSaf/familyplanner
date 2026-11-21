@@ -12,7 +12,7 @@ process.env.FAMILY_ID = 'home'
 const q = new URLSearchParams()
 const tim: Caller = { memberId: 'm-tim', role: 'admin', familyId: 'home', displayName: 'Tim' }
 const charlie: Caller = { memberId: 'm-charlie', role: 'member', familyId: 'home', displayName: 'Charlie' }
-type View = { wash: { load: string; dry: boolean; minutes: number; startsAt: string; endsAt: string; startedBy: string } | null; usual: Record<string, { minutes: number; dry: boolean }>; now: string }
+type View = { wash: { load: string | null; programme: string; minutes: number; startsAt: string; endsAt: string; startedBy: string } | null; usual: Record<string, { minutes: number; programme: string }>; now: string }
 
 let store: MemoryStore
 const at = (iso: string, caller = tim): Ctx => ({ store, caller, now: new Date(iso) })
@@ -31,19 +31,49 @@ describe('the washing machine', () => {
   it('starts a wash that ends after its length, recorded as whoever started it', async () => {
     const res = await start({ load: 'Darks', minutes: 59 })
     expect(res.status).toBe(201)
-    expect((await read()).wash).toEqual({ load: 'Darks', dry: false, minutes: 59, startsAt: '2026-11-21T10:00:00.000Z', endsAt: '2026-11-21T10:59:00.000Z', startedBy: 'm-tim' })
+    expect((await read()).wash).toEqual({ load: 'Darks', programme: 'wash', minutes: 59, startsAt: '2026-11-21T10:00:00.000Z', endsAt: '2026-11-21T10:59:00.000Z', startedBy: 'm-tim' })
   })
 
   it('a delayed start begins later and ends its length after that', async () => {
-    await start({ load: 'Towels', dry: true, minutes: 180, delayMinutes: 360 })
-    expect((await read()).wash).toMatchObject({ dry: true, startsAt: '2026-11-21T16:00:00.000Z', endsAt: '2026-11-21T19:00:00.000Z' })
+    await start({ load: 'Towels', programme: 'wash-dry', minutes: 180, delayMinutes: 360 })
+    expect((await read()).wash).toMatchObject({ programme: 'wash-dry', startsAt: '2026-11-21T16:00:00.000Z', endsAt: '2026-11-21T19:00:00.000Z' })
   })
 
-  it('remembers each load’s last length and drying for next time', async () => {
+  it('remembers each load’s last length and programme for next time', async () => {
     await start({ load: 'Darks', minutes: 59 })
-    await start({ load: 'Towels', dry: true, minutes: 200 })
+    await start({ load: 'Towels', programme: 'wash-dry', minutes: 200 })
     await start({ load: 'Darks', minutes: 45 })
-    expect((await read()).usual).toEqual({ Darks: { minutes: 45, dry: false }, Towels: { minutes: 200, dry: true } })
+    await start({ minutes: 30 })
+    expect((await read()).usual).toEqual({ Darks: { minutes: 45, programme: 'wash' }, Towels: { minutes: 200, programme: 'wash-dry' } })
+  })
+
+  it('needs only a length: the kind of clothes and the programme are extras', async () => {
+    await start({ minutes: 75 })
+    expect((await read()).wash).toMatchObject({ load: null, programme: 'wash', minutes: 75, endsAt: '2026-11-21T11:15:00.000Z' })
+  })
+
+  it('can just dry', async () => {
+    await start({ programme: 'dry', minutes: 120 })
+    expect((await read()).wash).toMatchObject({ load: null, programme: 'dry', minutes: 120 })
+  })
+
+  it('still takes dry: true from a page loaded before programmes, as wash & dry', async () => {
+    await start({ load: 'Towels', dry: true, minutes: 200 })
+    expect((await read()).wash).toMatchObject({ programme: 'wash-dry' })
+    await start({ load: 'Darks', dry: false, minutes: 59 })
+    expect((await read()).wash).toMatchObject({ programme: 'wash' })
+  })
+
+  it('reads a wash saved before programmes, and brings it up to date when next saved', async () => {
+    const old = { type: 'wash', id: 'wash', familyId: 'home', load: 'Towels', dry: true, minutes: 200, startsAt: '2026-11-21T09:00:00.000Z', endsAt: '2026-11-21T12:20:00.000Z', startedBy: 'm-tim', emptiedAt: null, emptiedBy: null, usual: { Towels: { minutes: 200, dry: true }, Darks: { minutes: 59, dry: false } }, createdAt: '2026-11-21T09:00:00.000Z', createdBy: 'm-tim', updatedAt: '2026-11-21T09:00:00.000Z', updatedBy: 'm-tim' }
+    await store.upsert(old as unknown as Wash)
+    const v = await read()
+    expect(v.wash).toMatchObject({ load: 'Towels', programme: 'wash-dry' })
+    expect(v.usual).toEqual({ Towels: { minutes: 200, programme: 'wash-dry' }, Darks: { minutes: 59, programme: 'wash' } })
+    await adjustWash(at('2026-11-21T10:00:00Z'), {}, q, { minutes: 10 })
+    const saved = (await store.get<Wash>('home', 'wash', 'wash')) as Wash & { dry?: boolean }
+    expect(saved).toMatchObject({ programme: 'wash-dry', minutes: 210 })
+    expect(saved.dry).toBeUndefined()
   })
 
   it('starting again replaces the wash in the machine, even one that was emptied', async () => {
@@ -102,7 +132,7 @@ describe('the washing machine', () => {
   })
 
   it('takes only the listed loads and sensible lengths, and nothing it was not asked for', async () => {
-    for (const body of [{ load: 'Socks', minutes: 30 }, { load: 'Darks' }, { load: 'Darks', minutes: 0 }, { load: 'Darks', minutes: 1441 }, { load: 'Darks', minutes: 30, delayMinutes: -5 }, { load: 'Darks', minutes: 30, delayMinutes: 1441 }, { load: 'Darks', minutes: 2.5 }]) {
+    for (const body of [{ load: 'Socks', minutes: 30 }, { load: 'Darks' }, { minutes: 30, programme: 'spin' }, {}, { load: 'Darks', minutes: 0 }, { load: 'Darks', minutes: 1441 }, { load: 'Darks', minutes: 30, delayMinutes: -5 }, { load: 'Darks', minutes: 30, delayMinutes: 1441 }, { load: 'Darks', minutes: 2.5 }]) {
       await expect(start(body), JSON.stringify(body)).rejects.toBeInstanceOf(ValidationError)
     }
     await start({ load: 'Darks', minutes: 30, startedBy: 'm-jo', endsAt: '2030-01-01T00:00:00Z', familyId: 'other' })
@@ -112,7 +142,7 @@ describe('the washing machine', () => {
   })
 
   it('takes a long wash, up to a day', async () => {
-    await start({ load: 'Bedding', dry: true, minutes: 24 * 60 })
+    await start({ load: 'Bedding', programme: 'wash-dry', minutes: 24 * 60 })
     expect((await read()).wash).toMatchObject({ minutes: 1440, endsAt: '2026-11-22T10:00:00.000Z' })
   })
 

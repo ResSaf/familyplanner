@@ -1,4 +1,4 @@
-import type { Load, Wash, WashState } from '../api/types'
+import type { Load, Programme, Wash, WashState } from '../api/types'
 
 /** The washer-dryer (5.14): where a wash is up to, and how the app and wall word it. */
 
@@ -8,6 +8,8 @@ export const OVERDUE_AFTER_MS = 2 * 60 * 60_000
 export const MAX_WASH_MINUTES = 24 * 60
 /** Hours and minutes typed on the length keypad: up to 23:59. */
 export const HOURS_ENTRY_DIGITS = 4
+/** The length offered before anything is chosen. */
+export const DEFAULT_MINUTES = 60
 /** One-tap lengths, in minutes. Anything else is typed. */
 export const WASH_MINUTES = [30, 45, 60, 90, 120, 180, 240]
 /** One-tap delays, in hours, for the machine's delay start or "ready in". */
@@ -39,8 +41,20 @@ export function washStatus(wash: Wash, nowMs: number): WashStatus {
 /** The state's clock now: this device's, corrected by how far it was from the server's. */
 export const serverNow = (state: Pick<WashState, 'now'> & { skewMs?: number }, deviceNowMs = Date.now()) => deviceNowMs + (state.skewMs ?? 0)
 
-/** "Darks", or "Darks, wash & dry". */
-export const washLabel = (w: Pick<Wash, 'load' | 'dry'>) => (w.dry ? `${w.load}, wash & dry` : w.load)
+/** What the programme buttons say. */
+export const PROGRAMME_LABELS: Record<Programme, string> = { wash: 'Wash', 'wash-dry': 'Wash & dry', dry: 'Dry only' }
+
+/** "Darks", "Darks, wash & dry", "Towels, dry only"; or, when the kind of clothes wasn't said, "Wash", "Wash & dry", "Dry only". */
+export function washLabel(w: Pick<Wash, 'load' | 'programme'>) {
+  if (!w.load) return PROGRAMME_LABELS[w.programme]
+  return w.programme === 'wash' ? w.load : `${w.load}, ${PROGRAMME_LABELS[w.programme].toLowerCase()}`
+}
+
+/** The start button: "Start Darks", "Start wash & dry", "Start drying". */
+export function startLabel(w: Pick<Wash, 'load' | 'programme'>) {
+  if (w.load) return `Start ${washLabel(w)}`
+  return w.programme === 'dry' ? 'Start drying' : `Start ${PROGRAMME_LABELS[w.programme].toLowerCase()}`
+}
 
 /** A length of time, rounded up to the minute: "45 min", "1h 05m". */
 export function fmtDuration(ms: number) {
@@ -63,9 +77,9 @@ export function washSummary(s: WashStatus) {
   return s.readyForMs < 60_000 ? 'Ready now' : `Ready ${fmtReadyFor(s.readyForMs)}`
 }
 
-/** What to offer for a load: its last length and drying, or a usual first guess. */
-export function usualFor(state: Pick<WashState, 'usual'> | undefined, load: Load) {
-  return state?.usual[load] ?? { minutes: FIRST_MINUTES[load], dry: false }
+/** What to offer for a load: its last length and programme, or a usual first guess. */
+export function usualFor(state: Pick<WashState, 'usual'> | undefined, load: Load): { minutes: number; programme: Programme } {
+  return state?.usual[load] ?? { minutes: FIRST_MINUTES[load], programme: 'wash' }
 }
 
 /**
