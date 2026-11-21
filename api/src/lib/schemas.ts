@@ -84,7 +84,12 @@ export const docPageSchema = z.object({ contentType: z.enum(IMAGE_TYPES), data: 
 /** A note's photo is shrunk in the browser as a document page is, and capped the same. */
 export const notePhotoSchema = docPageSchema
 
-export const choreSchema = z.object({ name: title })
+/** A chore comes round every `everyWeeks` weeks, counted from the Monday of `fromWeek` (R1). Weekly is 1, the default. */
+export const choreSchema = z.object({
+  name: title,
+  everyWeeks: z.number().int().min(1).max(52).optional(),
+  fromWeek: dateStr.optional(),
+})
 export const choreAssignSchema = z.object({ memberId: id })
 
 export const settingsPatchSchema = z.object({

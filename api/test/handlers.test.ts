@@ -417,7 +417,8 @@ describe('chores', () => {
   const week = '2026-09-21'
   const next = '2026-09-28'
   const add = async (name: string) => ((await createChore(ctx, {}, q(), { name })).body as Chore).id
-  const read = async (w: string) => (await getChores(ctx, {}, q(`week=${w}`), undefined)).body as { chores: { id: string; name: string }[]; assignments: { choreId: string; memberId: string }[] }
+  type Listed = { id: string; name: string; everyWeeks: number; fromWeek?: string; nextWeek?: string }
+  const read = async (w: string) => (await getChores(ctx, {}, q(`week=${w}`), undefined)).body as { chores: Listed[]; assignments: { choreId: string; memberId: string }[]; notDue: Listed[] }
 
   beforeEach(() => store.deleteAll('home').then(() => store.upsert(stamp(tim, 'member', { displayName: 'Tim', email: 'tim@example.com', role: 'admin' as const, colour: '#000000', active: true }, 'm-tim'))))
 
@@ -426,7 +427,7 @@ describe('chores', () => {
     await assignChore(ctx, { id, week }, q(), { memberId: 'm-tim' })
     expect((await read(week)).assignments).toEqual([{ choreId: id, memberId: 'm-tim' }])
     expect((await read(next)).assignments).toEqual([])
-    expect((await read(next)).chores).toEqual([{ id, name: 'Bins' }])
+    expect((await read(next)).chores).toEqual([{ id, name: 'Bins', everyWeeks: 1 }])
   })
   it('any day of the week means that week', async () => {
     const id = await add('Bins')
@@ -481,6 +482,61 @@ describe('chores', () => {
     const id = await add('Bins')
     await patchChore(ctx, { id }, q(), { name: 'Recycling' })
     expect((await read(week)).chores[0].name).toBe('Recycling')
+  })
+
+  describe('R1: chores that are not weekly', () => {
+    const fortnightly = async (name: string, fromWeek = week) => ((await createChore(ctx, {}, q(), { name, everyWeeks: 2, fromWeek })).body as Chore).id
+
+    it('shows a fortnightly chore only in the weeks it is due, and lists it as not due in the others', async () => {
+      const id = await fortnightly('Bins')
+      expect((await read(week)).chores.map((c) => c.id)).toEqual([id])
+      expect((await read(next)).chores).toEqual([])
+      expect((await read(next)).notDue).toEqual([{ id, name: 'Bins', everyWeeks: 2, fromWeek: week, nextWeek: '2026-10-05' }])
+      expect((await read('2026-10-05')).chores.map((c) => c.id)).toEqual([id])
+      // Weeks before the start week follow the same rhythm.
+      expect((await read('2026-09-07')).chores.map((c) => c.id)).toEqual([id])
+      expect((await read('2026-09-14')).chores).toEqual([])
+    })
+    it('takes any day as its start week, and defaults the start to this week', async () => {
+      const a = await fortnightly('Bins', '2026-09-24')
+      expect((await read(week)).chores.map((c) => c.id)).toEqual([a])
+      const b = ((await createChore(ctx, {}, q(), { name: 'Oven', everyWeeks: 4 })).body as Chore).id
+      expect((await read('2026-09-14')).chores.map((c) => c.id)).toEqual([b]) // ctx.now is 16 September
+      expect((await read('2026-10-12')).chores.map((c) => c.id)).toEqual([b])
+    })
+    it('refuses an assignment in a week the chore is not due', async () => {
+      const id = await fortnightly('Bins')
+      await expect(assignChore(ctx, { id, week: next }, q(), { memberId: 'm-tim' })).rejects.toMatchObject({ status: 400 })
+    })
+    it('copy takes a fortnightly chore from two weeks before, and a weekly one from the week before', async () => {
+      const bins = await fortnightly('Bins')
+      const hoover = await add('Hoover')
+      await assignChore(ctx, { id: bins, week }, q(), { memberId: 'm-tim' })
+      await assignChore(ctx, { id: hoover, week: next }, q(), { memberId: 'm-tim' })
+      expect((await copyChoreWeek(ctx, {}, q(), { week: next })).body).toEqual({ copied: 0 })
+      expect((await copyChoreWeek(ctx, {}, q(), { week: '2026-10-05' })).body).toEqual({ copied: 2 })
+      const got = (await read('2026-10-05')).assignments
+      expect(got).toContainEqual({ choreId: bins, memberId: 'm-tim' })
+      expect(got).toContainEqual({ choreId: hoover, memberId: 'm-tim' })
+    })
+    it('renaming keeps the repeat, and setting it back to weekly shows it every week', async () => {
+      const id = await fortnightly('Bins')
+      await patchChore(ctx, { id }, q(), { name: 'Recycling' })
+      expect((await read(next)).notDue[0]).toMatchObject({ name: 'Recycling', everyWeeks: 2 })
+      await patchChore(ctx, { id }, q(), { name: 'Recycling', everyWeeks: 1 })
+      expect((await read(next)).chores).toEqual([{ id, name: 'Recycling', everyWeeks: 1 }])
+    })
+    it('hides an assignment left in a week the chore is no longer due', async () => {
+      const id = await add('Bins')
+      await assignChore(ctx, { id, week: next }, q(), { memberId: 'm-tim' })
+      await patchChore(ctx, { id }, q(), { name: 'Bins', everyWeeks: 2, fromWeek: week })
+      expect((await read(next)).assignments).toEqual([])
+    })
+    it('rejects a repeat outside 1 to 52 weeks', async () => {
+      await expect(createChore(ctx, {}, q(), { name: 'Bins', everyWeeks: 0 })).rejects.toBeInstanceOf(ValidationError)
+      await expect(createChore(ctx, {}, q(), { name: 'Bins', everyWeeks: 53 })).rejects.toBeInstanceOf(ValidationError)
+      await expect(createChore(ctx, {}, q(), { name: 'Bins', everyWeeks: 1.5 })).rejects.toBeInstanceOf(ValidationError)
+    })
   })
 })
 

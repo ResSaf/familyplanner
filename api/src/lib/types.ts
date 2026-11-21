@@ -89,6 +89,10 @@ export interface Recipe extends BaseDoc {
 export interface Chore extends BaseDoc {
   type: 'chore'
   name: string
+  /** Comes round every this many weeks (R1). Missing means weekly. */
+  everyWeeks?: number
+  /** A Monday on which it is due; with `everyWeeks`, fixes which weeks those are. */
+  fromWeek?: string
 }
 
 /** Who has a chore in one week. At most one per chore per week, because the id is built from both. */

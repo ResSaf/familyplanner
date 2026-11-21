@@ -153,6 +153,16 @@ export interface DocPageImage {
 export interface Chore {
   id: string
   name: string
+  /** Comes round every this many weeks (R1). Missing or 1 means weekly. */
+  everyWeeks?: number
+  /** A Monday on which it is due, when it isn't weekly. */
+  fromWeek?: string
+  /** On a chore not due in the week asked for: the next week it is. */
+  nextWeek?: string
+}
+export interface ChoreRepeat {
+  everyWeeks: number
+  fromWeek?: string
 }
 export interface ChoreAssignment {
   choreId: string
@@ -161,6 +171,8 @@ export interface ChoreAssignment {
 export interface ChoreSchedule {
   chores: Chore[]
   assignments: ChoreAssignment[]
+  /** Chores that don't come round in this week, for the Chores page to list and edit. */
+  notDue?: Chore[]
 }
 
 export interface WeatherDay {

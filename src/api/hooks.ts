@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { ChatMessage, Chore, ChoreSchedule, DisplayDevice, ExternalEvents, Item, List, Me, DocPageImage, FamilyDocument, MemberRecord, Note, NoteInput, Person, PlanEntry, Recipe, RecipeInput, Settings, Shopping, Task, WallList, Weather } from './types'
+import type { ChatMessage, Chore, ChoreRepeat, ChoreSchedule, DisplayDevice, ExternalEvents, Item, List, Me, DocPageImage, FamilyDocument, MemberRecord, Note, NoteInput, Person, PlanEntry, Recipe, RecipeInput, Settings, Shopping, Task, WallList, Weather } from './types'
 
 export const useMe = () => useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/me') })
 export const usePeople = () => useQuery({ queryKey: ['people'], queryFn: () => api<Person[]>('/people'), staleTime: 60_000 })
@@ -109,7 +109,7 @@ export const mutations = {
   deleteDocPage: (id: string, pageId: string) => api<FamilyDocument>(`/documents/${id}/pages/${pageId}`, { method: 'DELETE' }),
 
   createChore: (name: string) => api<Chore>('/chores', { method: 'POST', json: { name } }),
-  renameChore: (id: string, name: string) => api<Chore>(`/chores/${id}`, { method: 'PATCH', json: { name } }),
+  saveChore: (id: string, name: string, repeat: ChoreRepeat) => api<Chore>(`/chores/${id}`, { method: 'PATCH', json: { name, ...repeat } }),
   deleteChore: (id: string) => api<void>(`/chores/${id}`, { method: 'DELETE' }),
   assignChore: (id: string, week: string, memberId: string) => api<void>(`/chores/${id}/weeks/${week}`, { method: 'PUT', json: { memberId } }),
   unassignChore: (id: string, week: string) => api<void>(`/chores/${id}/weeks/${week}`, { method: 'DELETE' }),

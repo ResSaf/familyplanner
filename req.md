@@ -33,7 +33,7 @@ Explicitly out of scope for the first release:
 - Push notifications or reminders. Deferred to v2.
 - Real-time collaboration (WebSockets or SignalR). Polling on focus is sufficient for v1.
 - Creating, editing or deleting events in the planner, and writing to Google Calendar. Google Calendar is the single source of truth for events; the planner only displays them (Section 5.3).
-- Budgeting, chores with rewards, recurring or tracked chores, photo sharing. All possible later, none in v1. Non-weekly and tickable chores have since been requested (5.13, R1 and R2).
+- Budgeting, chores with rewards, recurring or tracked chores, photo sharing. All possible later, none in v1. Chores that come round every few weeks have since been added (5.9), and ticking chores off has been requested (5.13, R2).
 - Structured recipe data: nutrition information, portion scaling, ingredients as records. Recipes are plain text (Section 5.8) and the meal plan stays a plan of plain text.
 - Offline editing. The app should load its shell offline but does not need to queue writes.
 - AI features beyond the read-only chat in Section 5.10.
@@ -161,12 +161,13 @@ The family's recipes, kept in the app. They have their own item in the top navig
 
 ### 5.9 Chores
 
-A display of who has which chore each week. It records the plan and nothing else: any adult can do any chore, so there is no completing, no reminding and no rotation. Non-weekly chores and ticking chores off have been requested (5.13, R1 and R2).
+A display of who has which chore each week. It records the plan and nothing else: any adult can do any chore, so there is no completing, no reminding and no rotation. Ticking chores off has been requested (5.13, R2).
 
 - The family keeps one list of chores by name. Any member can add, rename or delete them. Deleting a chore removes it from every week.
 - The page shows one week at a time, Monday to Sunday, with previous and next navigation like the meal plan. Larger screens have a Chores item in the top navigation, and on a phone it is a tab on the To-dos page. Each chore shows the family's people as chips. Tap one to assign the chore for that week and tap again to clear it.
 - A chore has at most one person per week. With nobody assigned it reads as "Anyone".
-- "Copy last week" fills unassigned chores from the previous week, leaving those already set, and skips anyone who has since been removed.
+- **Repeat.** A chore comes round every week by default, or every 2, 3, 4, 6, 8, 13, 26 or 52 weeks, set in its editor with the week it is next due: picked from the next few weeks, or as a date for a repeat longer than 13 weeks. Weeks before that one follow the same rhythm. In a week it isn't due, a chore isn't on that week's schedule, the dashboard, the wall or in chat's answers, and can't be assigned. The Chores page lists it under "Not this week" with its repeat and the next week it is due, so it can still be edited. Changing a repeat leaves past assignments alone; any in weeks it is no longer due are not shown.
+- "Copy last week" fills unassigned chores from each one's last time round (the week before for a weekly chore, two weeks before for a fortnightly one), leaving those already set, and skips anyone who has since been removed.
 
 ### 5.10 Chat
 
@@ -208,7 +209,7 @@ A place to keep photographed paperwork (letters, warranties, certificates, manua
 
 Asked for on 14 November 2026. Each one changes something decided above, noted against it, so the open questions should be settled before it is built. The defaults let work go ahead without them.
 
-- **R1. Chores that aren't weekly.** Some chores come round less often than weekly: the bins on alternate weeks, changing the beds, cleaning the oven. A chore gets an optional repeat of every N weeks from a starting week; weekly is N = 1 and stays the default, so existing chores are unchanged. In a week it isn't due, a chore doesn't show on the Chores page, the dashboard or the wall. Assigning works as now in the weeks it is due, and "Copy last week" copies such a chore from the last week it was due rather than the week before. Changes 5.9 and the "recurring" non-goal in Section 3. Data: `chore` gains `everyWeeks` (default 1) and `fromWeek` (a Monday). Open: is a monthly repeat ("first Saturday of the month") needed as well? Default: every N weeks only.
+- **R1. Chores that aren't weekly.** Built 14 November 2026 as every N weeks; see Repeat in 5.9. A monthly repeat ("first Saturday of the month") was left out until it is needed.
 - **R2. Ticking off chores, wherever they show.** A chore can be marked done for its week with one tap on the Chores page, on the dashboard's chores section and on the wall, with Undo for five seconds as for to-dos (5.5). It records who ticked it and when, which needn't be the person assigned. A done chore stays in place, ticked and dimmed, so the week's plan still reads. Each week starts unticked, and an unassigned chore can be ticked too. Changes 5.9 ("no completing") and the "tracked chores" non-goal. Data: `choreWeek` gains `done`, `doneAt` and `doneBy`, and may exist with no `memberId` once ticked. Wall: a third display write, `POST /display/chores/{id}/done` with `{ week, done }`, sent as JSON, which ticks or unticks and changes nothing else, recorded as `display:<device id>`; S34, A13a and A13b extend to it, and its accepted risk is the same as for to-dos. Open: should the dashboard hide done chores rather than dim them? Default: dim.
 - **R3. Adding to a shopping list from the wall, with suggestions.** The wall's shopping card and Lists page get an Add button. It opens a panel for one list (the default, or the list it was opened from) showing suggestion chips first and a text box under them, so most adds are a single tap without the frame's keyboard. Tapping a chip adds that item and keeps the panel open, as the quick-add sheet does (5.2). Suggestions are the list's usual items that aren't on it now, ranked by how overdue they are: an item bought roughly every 7 days and last ticked 9 days ago comes before one bought monthly. Typing filters them, as autocomplete does in the app (5.4). The same suggestions appear in the app's add box and quick-add sheet. The engine is plain counting on the server, with no AI model, so nothing leaves Azure (S33). Because "Clear done" deletes checked items, purchase history needs its own record: one `buyHistory` document per list and item name, updated when an item is ticked, holding a count, the last few tick dates and the typical gap between them. Wall: a fourth display write, `POST /display/lists/{id}/items` with `{ name }` only, sent as JSON, within the length limits of S13, on an open list, recorded as `display:<device id>`. This is the first time the wall key can add rather than tick, so S34's statement that it "cannot add" changes: anyone at the frame can add an item, as with a pen by the list on the fridge, and the wall offers Undo for a few seconds, which deletes only the item just added. The key still can't edit or delete any other item. Open: is the frame's on-screen keyboard usable, or should the wall offer suggestions only? Default: both, suggestions first. And should suggestions also come from recipes on this week's plan? Default: not yet.
 
@@ -351,7 +352,7 @@ plan     { date: "YYYY-MM-DD", slot: "breakfast"|"lunch"|"dinner", text }
 
 recipe   { title, summary?, serves?, time?, source?, tags: [string], ingredients, method, notes }
 
-chore    { name }
+chore    { name, everyWeeks? (1 to 52, missing means 1), fromWeek? (a Monday it is due, when not weekly) }
 
 choreWeek { week: "YYYY-MM-DD" (the Monday), choreId, memberId }
 
@@ -423,13 +424,13 @@ All routes under `/api`, JSON in and out, role `member` or `admin` unless marked
 | POST | `/display-devices` | Admin. `{ name }`. Returns `{ id, name, key }`, the only time the key is shown |
 | DELETE | `/display-devices/{id}` | Admin. Revoke |
 | POST | `/chat` | Answer a question (`{ "messages": [{ "role", "content" }] }`, at most 20, starting and ending with the member's). Reads only (S33). Returns `{ reply }` |
-| GET | `/chores?week=YYYY-MM-DD` | Chores and that week's assignments |
-| POST | `/chores` | Create chore |
-| PATCH | `/chores/{id}` | Rename chore |
+| GET | `/chores?week=YYYY-MM-DD` | The chores due that week and their assignments, and `notDue`: the others, each with `nextWeek` |
+| POST | `/chores` | Create chore: `{ name, everyWeeks?, fromWeek? }` |
+| PATCH | `/chores/{id}` | Rename chore or change its repeat |
 | DELETE | `/chores/{id}` | Delete chore and all its weeks |
-| PUT | `/chores/{id}/weeks/{week}` | Assign a member for that week |
+| PUT | `/chores/{id}/weeks/{week}` | Assign a member for that week. 400 in a week it isn't due |
 | DELETE | `/chores/{id}/weeks/{week}` | Clear that week's assignment |
-| POST | `/chores/copy-week` | Fill unassigned chores from the previous week (`{ "week": "YYYY-MM-DD" }`) |
+| POST | `/chores/copy-week` | Fill unassigned chores from each one's last time round (`{ "week": "YYYY-MM-DD" }`) |
 | GET | `/weather` | The town and its forecast, which is null if unavailable |
 | GET | `/settings` | Family-wide settings |
 | PATCH | `/settings` | Update settings (admin) |
@@ -483,7 +484,7 @@ Each of these should be demonstrable before v1 is called done.
 - A9e. Importing the family's org file creates every recipe, and importing it again creates none. A recipe with subheadings, one with a sub-recipe and one with only a link all display correctly.
 - A9h. `POST /api/integration/recipes` with no token or a wrong one returns 403 and writes nothing. With the token, a new title is added and an existing one left unchanged. A recipe deleted in the app is not added again by the next daily intake.
 - A9f. From a recipe, unticking one ingredient and adding the rest puts exactly those on the chosen list. Putting the recipe on the plan makes that cell link back to it.
-- A9g. A chore assigned this week appears on the dashboard with that person and is unassigned next week until "Copy last week" fills it, leaving any chore already assigned there untouched.
+- A9g. A chore assigned this week appears on the dashboard with that person and is unassigned next week until "Copy last week" fills it, leaving any chore already assigned there untouched. A fortnightly chore shows only every other week, on the dashboard and the wall as on the Chores page, where the other weeks list it under "Not this week" with the week it is next due; copying fills it from two weeks before.
 - A9i. The dashboard shows today's weather for Reading and a forecast high on each of the next six days, and no browser request goes to a weather service. With the service unreachable, the dashboard shows no weather and otherwise works.
 - A9j. Chat answers a question from the planner's data using Claude Haiku 5.5, whatever the request asks for. No question can change anything in the planner, and with no API key the page says chat isn't set up.
 - A9k. Importing a family notes org file in Settings creates a note per top-level heading with its category, and importing it again creates none. `POST /api/integration/notes` behaves as A9h does for recipes. The wall shows the notes read-only from its Notes button, with no links. A photo added to a note in the app shows under its text there and on the wall, and opens full screen when tapped.
