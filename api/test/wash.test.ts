@@ -54,14 +54,27 @@ describe('the washing machine', () => {
     expect(await store.byType<Wash>('home', 'wash')).toHaveLength(1)
   })
 
-  it('emptying clears it, and Undo puts it back as it was', async () => {
+  it('emptying clears it, recorded as whoever emptied it', async () => {
     await start({ load: 'Darks', minutes: 59 })
-    const before = (await read()).wash
     await setWashEmptied(at('2026-11-21T11:30:00Z', charlie), {}, q, { emptied: true })
     expect((await read()).wash).toBeNull()
     expect(await store.get<Wash>('home', 'wash', 'wash')).toMatchObject({ emptiedAt: '2026-11-21T11:30:00.000Z', emptiedBy: 'm-charlie' })
-    await setWashEmptied(at('2026-11-21T11:30:05Z'), {}, q, { emptied: false })
-    expect((await read()).wash).toEqual(before)
+  })
+
+  it('cannot be un-emptied: there is no undo', async () => {
+    await start({ load: 'Darks', minutes: 59 })
+    await setWashEmptied(at('2026-11-21T11:30:00Z'), {}, q, { emptied: true })
+    for (const body of [{ emptied: false }, {}, { emptied: 'no' }]) {
+      await expect(setWashEmptied(at('2026-11-21T11:30:05Z'), {}, q, body), JSON.stringify(body)).rejects.toBeInstanceOf(ValidationError)
+    }
+    expect((await read()).wash).toBeNull()
+  })
+
+  it('emptying twice keeps the first time and who did it', async () => {
+    await start({ load: 'Darks', minutes: 59 })
+    await setWashEmptied(at('2026-11-21T11:30:00Z', charlie), {}, q, { emptied: true })
+    await setWashEmptied(at('2026-11-21T11:45:00Z'), {}, q, { emptied: true })
+    expect(await store.get<Wash>('home', 'wash', 'wash')).toMatchObject({ emptiedAt: '2026-11-21T11:30:00.000Z', emptiedBy: 'm-charlie' })
   })
 
   it('can be emptied before it is done, to call off a wrong entry', async () => {
@@ -89,13 +102,18 @@ describe('the washing machine', () => {
   })
 
   it('takes only the listed loads and sensible lengths, and nothing it was not asked for', async () => {
-    for (const body of [{ load: 'Socks', minutes: 30 }, { load: 'Darks' }, { load: 'Darks', minutes: 0 }, { load: 'Darks', minutes: 601 }, { load: 'Darks', minutes: 30, delayMinutes: -5 }, { load: 'Darks', minutes: 30, delayMinutes: 1441 }, { load: 'Darks', minutes: 2.5 }]) {
+    for (const body of [{ load: 'Socks', minutes: 30 }, { load: 'Darks' }, { load: 'Darks', minutes: 0 }, { load: 'Darks', minutes: 1441 }, { load: 'Darks', minutes: 30, delayMinutes: -5 }, { load: 'Darks', minutes: 30, delayMinutes: 1441 }, { load: 'Darks', minutes: 2.5 }]) {
       await expect(start(body), JSON.stringify(body)).rejects.toBeInstanceOf(ValidationError)
     }
     await start({ load: 'Darks', minutes: 30, startedBy: 'm-jo', endsAt: '2030-01-01T00:00:00Z', familyId: 'other' })
     expect(await store.get<Wash>('home', 'wash', 'wash')).toMatchObject({ startedBy: 'm-tim', endsAt: '2026-11-21T10:30:00.000Z', familyId: 'home' })
     await expect(adjustWash(at('2026-11-21T10:00:00Z'), {}, q, { minutes: 0 })).rejects.toBeInstanceOf(ValidationError)
     await expect(adjustWash(at('2026-11-21T10:00:00Z'), {}, q, { minutes: 121 })).rejects.toBeInstanceOf(ValidationError)
+  })
+
+  it('takes a long wash, up to a day', async () => {
+    await start({ load: 'Bedding', dry: true, minutes: 24 * 60 })
+    expect((await read()).wash).toMatchObject({ minutes: 1440, endsAt: '2026-11-22T10:00:00.000Z' })
   })
 
   it('is in the export', async () => {

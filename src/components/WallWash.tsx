@@ -1,10 +1,7 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { fmtDuration, fmtReadyFor } from '../lib/wash'
 import { Icon } from './Icons'
 import { useWashActions, useWashNow, WashDetail, WashStartForm } from './Wash'
-
-/** How long Undo stays up after the wash is emptied on the wall, as for a ticked to-do. */
-const UNDO_FOR_MS = 8_000
 
 /**
  * The washing machine on the wall (5.14), in the header so it shows on every view: a button after Notes, quiet
@@ -14,37 +11,23 @@ const UNDO_FOR_MS = 8_000
  */
 export function useWallWash(): { button: ReactNode; alert: ReactNode; panel: ReactNode } {
   const [open, setOpen] = useState(false)
-  const [undoUntil, setUndoUntil] = useState(0)
   const { state, status } = useWashNow(open ? 5_000 : 15_000)
   const actions = useWashActions()
 
-  useEffect(() => {
-    if (!undoUntil) return
-    const t = setTimeout(() => setUndoUntil(0), undoUntil - Date.now())
-    return () => clearTimeout(t)
-  }, [undoUntil])
-
   const empty = async () => {
-    if (await actions.setEmptied(true)) {
-      setOpen(false)
-      setUndoUntil(Date.now() + UNDO_FOR_MS)
-    }
-  }
-  const undo = async () => {
-    setUndoUntil(0)
-    await actions.setEmptied(false)
+    if (await actions.empty()) setOpen(false)
   }
 
   const phase = status?.phase
   const ready = phase === 'done' || phase === 'overdue'
-  const label = undoUntil ? 'Undo' : phase === 'running' ? fmtDuration(status!.leftMs).replace(' min', 'm') : phase === 'waiting' ? 'Later' : 'Wash'
+  const label = phase === 'running' ? fmtDuration(status!.leftMs).replace(' min', 'm') : phase === 'waiting' ? 'Later' : 'Wash'
   // While the alert is up it is the way in, so the small button steps aside and the header still fits.
-  const button = ready && !undoUntil ? null : (
+  const button = ready ? null : (
     <button
       type="button"
       className={`wall-notes-btn wall-wash-btn${phase ? ' wall-wash-on' : ''}`}
-      aria-label={undoUntil ? 'Undo emptying the washing machine' : 'Washing machine'}
-      onClick={() => (undoUntil ? void undo() : setOpen(true))}
+      aria-label="Washing machine"
+      onClick={() => setOpen(true)}
     >
       <Icon name="washer" size={22} />
       {label}

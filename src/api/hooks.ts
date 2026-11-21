@@ -105,7 +105,7 @@ export const mutations = {
   /** The washing machine. On the wall page these go to /api/display/wash, three of its writes (S34). */
   startWash: (body: WashStart) => api<WashState>('/wash', { method: 'POST', json: body }),
   adjustWash: (minutes: number) => api<WashState>('/wash/adjust', { method: 'POST', json: { minutes } }),
-  setWashEmptied: (emptied: boolean) => api<WashState>('/wash/emptied', { method: 'POST', json: { emptied } }),
+  emptyWash: () => api<WashState>('/wash/emptied', { method: 'POST', json: { emptied: true } }),
 
   setCell: (date: string, slot: string, body: { text: string }) =>
     api<PlanEntry>(`/plan/${date}/${slot}`, { method: 'PUT', json: body }),

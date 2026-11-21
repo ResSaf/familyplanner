@@ -4,6 +4,10 @@ import type { Load, Wash, WashState } from '../api/types'
 
 /** A finished wash left this long goes from "ready" to "waiting" and shows more strongly. */
 export const OVERDUE_AFTER_MS = 2 * 60 * 60_000
+/** The longest wash, typed or stepped to. The API allows the same. */
+export const MAX_WASH_MINUTES = 24 * 60
+/** Hours and minutes typed on the length keypad: up to 23:59. */
+export const HOURS_ENTRY_DIGITS = 4
 /** One-tap lengths, in minutes. Anything else is typed. */
 export const WASH_MINUTES = [30, 45, 60, 90, 120, 180, 240]
 /** One-tap delays, in hours, for the machine's delay start or "ready in". */
@@ -73,7 +77,7 @@ export function delayMinutes(mode: 'start' | 'ready', delay: number, minutes: nu
   return delay >= minutes ? delay - minutes : null
 }
 
-/** Typed digits as hours and minutes, filling from the right: "130" is 1:30. At most 9:59, so a few presses. */
+/** Typed digits as hours and minutes, filling from the right: "130" is 1:30, "1200" is 12:00. Minutes over 59 count on, as on a microwave. */
 export function fmtHoursEntry(digits: string) {
   const d = digits.padStart(3, '0')
   return `${Number(d.slice(0, -2))}:${d.slice(-2)}`
