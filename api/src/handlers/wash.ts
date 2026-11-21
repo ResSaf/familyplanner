@@ -58,14 +58,12 @@ export const adjustWash: Handler = async (ctx, _p, _q, body) => {
   return { body: view(saved, ctx.now) }
 }
 
-/** Emptied: collected when done, or called off before. `false` is Undo, and puts it back as it was. */
+/** Emptied: collected when done, or called off before. Emptying twice changes nothing. */
 export const setWashEmptied: Handler = async (ctx, _p, _q, body) => {
-  const { emptied } = parse(washEmptiedSchema, body)
+  parse(washEmptiedSchema, body)
   const wash = await load(ctx)
   if (!wash) throw notFound('Nothing in the washing machine')
-  if (emptied === !!wash.emptiedAt) return { body: view(wash, ctx.now) }
-  const saved = await ctx.store.upsert(
-    touch(ctx.caller, wash, emptied ? { emptiedAt: ctx.now.toISOString(), emptiedBy: ctx.caller.memberId } : { emptiedAt: null, emptiedBy: null }),
-  )
+  if (wash.emptiedAt) return { body: view(wash, ctx.now) }
+  const saved = await ctx.store.upsert(touch(ctx.caller, wash, { emptiedAt: ctx.now.toISOString(), emptiedBy: ctx.caller.memberId }))
   return { body: view(saved, ctx.now) }
 }

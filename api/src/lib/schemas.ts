@@ -97,14 +97,14 @@ export const washStartSchema = z.object({
   load: z.enum(LOADS),
   dry: z.boolean().default(false),
   /** The whole programme, as the machine shows it. */
-  minutes: z.number().int().min(1).max(600),
+  minutes: z.number().int().min(1).max(24 * 60),
   /** The machine's delay start: how long until it begins. */
   delayMinutes: z.number().int().min(0).max(24 * 60).default(0),
 })
 /** The machine said something different: lengthen or shorten the wash, never below a minute. */
 export const washAdjustSchema = z.object({ minutes: z.number().int().min(-120).max(120).refine((m) => m !== 0, 'Must not be zero') })
-/** Emptied, or Undo. */
-export const washEmptiedSchema = z.object({ emptied: z.boolean() })
+/** Emptied. There is no un-emptying. */
+export const washEmptiedSchema = z.object({ emptied: z.literal(true) })
 
 export const settingsPatchSchema = z.object({
   breakfastEnabled: z.boolean().optional(),

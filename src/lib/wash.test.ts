@@ -61,5 +61,8 @@ describe('starting', () => {
     expect(fmtHoursEntry('130')).toBe('1:30')
     expect(hoursEntryMinutes('130')).toBe(90)
     expect(hoursEntryMinutes('59')).toBe(59)
+    expect(fmtHoursEntry('1230')).toBe('12:30')
+    expect(hoursEntryMinutes('1230')).toBe(750)
+    expect(hoursEntryMinutes('2359')).toBe(1439)
   })
 })

@@ -257,7 +257,6 @@ export function createDemoApi(today: () => string, hour: () => number = () => ne
   // A wash on the go, so the demo shows the machine too. Changed only in the demo's own copy.
   const started = Date.now() - 20 * 60_000
   let wash: Wash | null = { load: 'Darks', dry: false, minutes: 59, startsAt: new Date(started).toISOString(), endsAt: new Date(started + 59 * 60_000).toISOString(), startedBy: 'display:demo' }
-  let emptied: Wash | null = null
   const washState = (): WashState => ({ wash: fresh(wash), usual: { Darks: { minutes: 59, dry: false } }, now: new Date().toISOString() })
   const fresh = <T>(v: T): T => structuredClone(v)
 
@@ -280,8 +279,7 @@ export function createDemoApi(today: () => string, hour: () => number = () => ne
         return washState()
       }
       if (path === '/wash/emptied') {
-        if ((init.json as { emptied: boolean }).emptied) [emptied, wash] = [wash ?? emptied, null]
-        else if (emptied) [wash, emptied] = [emptied, null]
+        wash = null
         return washState()
       }
       const done = path.match(/^\/tasks\/([^/]+)\/done$/)

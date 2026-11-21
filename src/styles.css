@@ -694,3 +694,21 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
 .wall-wash-detail.wall-wash-overdue { background: var(--wash-waiting); }
 :is(.wall-wash-done, .wall-wash-overdue) .wall-wash-meta { color: #fff; }
 .wall-wash-detail:is(.wall-wash-done, .wall-wash-overdue) .wall-wash-start { background: #fff; color: var(--wash-waiting); }
+
+/* The length keypad (5.14), opened by tapping the length. */
+.wash-length-btn { border: 0; background: none; color: var(--text); cursor: pointer; padding: 0.2rem 0.4rem; border-radius: var(--radius-sm); text-decoration: underline dotted var(--muted); text-underline-offset: 0.3em; }
+.wall-wash-length-btn { border: 0; background: var(--sunk); color: var(--text); cursor: pointer; min-height: 64px; border-radius: var(--radius); touch-action: manipulation; }
+.wash-typing, .wall-wash-form .wall-wash-typing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: center; }
+.wash-typing legend, .wall-wash-typing legend { grid-column: 1 / -1; }
+.wash-typed, .wall-wash-typed { display: flex; flex-direction: column; align-items: stretch; gap: 0.6rem; }
+.wash-typed-actions, .wall-wash-typed-actions { display: flex; gap: 0.5rem; justify-content: center; }
+.wash-empty, .wall-wash-empty { color: var(--muted); opacity: 0.6; }
+.wash-keys { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; }
+.wash-key { min-height: 44px; border: 0; border-radius: var(--radius-sm); background: var(--sunk); color: var(--text); font: inherit; font-size: 1.2rem; font-weight: 700; cursor: pointer; }
+.wash-key-small { font-size: 0.85rem; }
+.wash-key:disabled { opacity: 0.4; }
+.wall-wash-typed .wall-wash-length { font-size: 4.5rem; }
+.wall-wash-keys { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; }
+.wall-wash-key { min-height: 72px; border: 0; border-radius: var(--radius); background: var(--sunk); color: var(--text); font-family: var(--display); font-size: 2.2rem; font-weight: 800; cursor: pointer; touch-action: manipulation; }
+.wall-wash-key-small { font-family: var(--sans); font-size: 1.3rem; }
+.wall-wash-key:disabled { opacity: 0.35; }
