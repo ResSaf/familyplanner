@@ -1,4 +1,5 @@
 import { memberColour } from '../lib/caller'
+import { notifyChoices } from '../lib/push'
 import type { Handler } from '../lib/http'
 import { mePatchSchema, parse } from '../lib/schemas'
 import type { Member } from '../lib/types'
@@ -10,15 +11,15 @@ export const getMe: Handler = async ({ store, caller }) => {
   const m = await store.get<Member>(caller.familyId, caller.memberId, 'member')
   // A display paired with a key (S34) has no member document.
   if (!m) return { body: { id: caller.memberId, displayName: caller.displayName, colour: '#57534e', role: caller.role, email: '' } }
-  return { body: { ...publicMember(m), email: m.email } }
+  return { body: { ...publicMember(m), email: m.email, notify: notifyChoices(m) } }
 }
 
-/** Own display name and colour only. A `role` in the body is stripped by the schema (A12). */
+/** Own display name, colour and notification choices only. A `role` in the body is stripped by the schema (A12). */
 export const patchMe: Handler = async ({ store, caller }, _p, _q, body) => {
   const patch = parse(mePatchSchema, body)
   const m = (await store.get<Member>(caller.familyId, caller.memberId, 'member'))!
   const saved = await store.upsert(touch(caller, m, patch))
-  return { body: { ...publicMember(saved), email: saved.email } }
+  return { body: { ...publicMember(saved), email: saved.email, notify: notifyChoices(saved) } }
 }
 
 /** Active members' public fields, for pickers and colours. Visible to every member. The display is not a person, so it can't be picked. */

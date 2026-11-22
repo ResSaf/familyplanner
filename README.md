@@ -30,6 +30,7 @@ infra/recipe-intake.mts, .sh     daily copy of new recipes from the org file, ru
 infra/note-intake.mts, .sh       daily copy of new family notes from their org file, run by Hermes
 infra/set-recipe-intake-token.sh   sets the token that job uses
 infra/set-chat-key.sh            sets the Anthropic API key that turns chat on
+infra/set-push-keys.sh           creates the keys that turn phone notifications on
 infra/family-invites.gs          Apps Script that puts emailed invites on the Family calendar
 infra/family-invites.appsscript.json   its manifest, which pins its permissions
 staticwebapp.config.json   route roles, provider lockdown, security headers (Appendix A)
@@ -113,6 +114,16 @@ To turn it on, create an API key in the Anthropic Console and set a monthly spen
 
 Questions and whatever the tools read go to Anthropic's API, including anything about children (S33). The conversation stays in the browser tab and isn't stored.
 
+## Phone notifications
+
+Two notifications go to phones as Web Push (requirements 5.15): **Washing ready** when a wash finishes, plus **Washing still waiting** if it hasn't been emptied two hours later, and an **Evening summary** at 8pm of the meals and calendar events for tomorrow and the day after. Each person turns them on per phone from **Notifications** in the account menu, and chooses which of the two they want. On an iPhone the planner has to be added to the Home Screen first (iOS 16.4 or later), and the page says how.
+
+There is no timer. Reading the washing machine (`GET /api/wash`, and the wall's `/api/display/wash`) sends whatever is due. The wall reads it every minute and the app every 30 seconds while open, so a notification goes out within about a minute. If the wall is off and nobody has the app open, nothing is sent. The logic is in `api/src/lib/notify.ts` and the sending in `api/src/lib/push.ts`.
+
+To turn it on, run `bash infra/set-push-keys.sh` in a terminal signed in with `az login`, after `npm install` in `api/`. It makes a VAPID key pair and saves it in the app settings without printing the private key. It refuses to replace existing keys unless given `--replace`, because new keys stop every phone's notifications until each person turns them on again. Until keys are set, the page says notifications aren't set up.
+
+Notifications only work on the live site, because the service worker is registered only in a production build. The text is encrypted for each phone before it reaches Apple's or Google's push service (S35).
+
 ## Wall display
 
 `/display` is the page for the kitchen photoframe (see [HomeDash](https://github.com/timotaysci/HomeDash)): a clock and the weather; then three columns: today's events and meals with the default shopping list under them, the next six days, and the to-dos (due or overdue, undated, then the coming week, up to six, or ten with no chores, each with a tick button and a few seconds' Undo) above this week's chores. Large **Today**, **Meals**, **Month** and **Recipes** buttons in the corner switch between the dashboard, the next seven days' meals, the whole month's calendar and a recipe browser with search and tags. A meal that matches a recipe's title opens it from Meals, and tonight's dinner opens first under Recipes. Meals stays up until another button is pressed. Month returns to the dashboard five minutes after the last touch, and Recipes after thirty, so it stays up while cooking. A smaller **Notes** button after them shows the family notes, read-only, and returns to the dashboard after five minutes like Month. Tapping the clock opens a silent kitchen timer: type a time on its keypad (digits fill in from the right, so 1, 3, 0 is 1:30) or tap 1, 2, 5 or 10 minutes, and it shows a large countdown. Hidden while it runs, the countdown stays under the clock, and when the time is up the timer opens again and flashes until someone taps OK. A running timer carries on through the kiosk's and the nightly reloads. The page refreshes its data every minute and reloads itself once a night to pick up new deploys. Any member can open it to see what the frame shows.
@@ -189,7 +200,6 @@ Client secrets expire, by default after a year: `az ad sp credential reset --id 
 
 ## Draft status and known gaps
 
-- PNG icons (192 and 512) for the manifest are not generated yet; the SVG works in Chrome but iOS wants PNG.
 - No ESLint config yet; CI runs type-check and tests.
 - Playwright smoke suite (section 11) not written.
 - Events created in the app before Google became the only source are no longer shown. They stay in the database and the export.

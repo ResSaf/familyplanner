@@ -19,6 +19,18 @@ export interface Person {
 }
 export interface Me extends Person {
   email: string
+  /** Which phone notifications this person wants (5.15). Missing for the wall. */
+  notify?: NotifyChoices
+}
+export interface NotifyChoices {
+  wash: boolean
+  summary: boolean
+}
+/** One of my phones with notifications on (5.15). The subscription itself is never sent back (S35). */
+export interface PushDevice {
+  id: string
+  label: string
+  createdAt: string
 }
 /** A paired wall display (S34). Keys are never sent back after creation. */
 export interface DisplayDevice {

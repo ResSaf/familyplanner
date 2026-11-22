@@ -1,6 +1,6 @@
 /* App-shell cache only. API responses and auth are never cached (section 8). */
-const CACHE = 'familyplanner-shell-v2'
-const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon.svg']
+const CACHE = 'familyplanner-shell-v3'
+const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png', '/icons/badge-96.png']
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()))
@@ -28,4 +28,43 @@ self.addEventListener('fetch', (e) => {
       })),
     )
   }
+})
+
+/*
+ * Phone notifications (5.15). The API encrypts each one for this phone; the browser decrypts it and hands it here.
+ * A notice with the same tag as one already showing replaces it, so a repeat doesn't stack up.
+ */
+self.addEventListener('push', (e) => {
+  let n = {}
+  try {
+    n = e.data ? e.data.json() : {}
+  } catch {
+    n = { body: e.data ? e.data.text() : '' }
+  }
+  e.waitUntil(
+    self.registration.showNotification(n.title || 'FamilyPlanner', {
+      body: n.body || '',
+      tag: n.tag || undefined,
+      renotify: Boolean(n.tag),
+      icon: '/icons/icon-192.png',
+      badge: '/icons/badge-96.png',
+      data: { url: typeof n.url === 'string' && n.url.startsWith('/') ? n.url : '/' },
+    }),
+  )
+})
+
+/** Tapping opens the planner at the notice's page, reusing an open window if there is one. */
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close()
+  const url = new URL(e.notification.data?.url || '/', self.location.origin).href
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (wins) => {
+      const win = wins.find((w) => new URL(w.url).origin === self.location.origin && !new URL(w.url).pathname.startsWith('/display'))
+      if (win) {
+        await win.focus()
+        return 'navigate' in win ? win.navigate(url).catch(() => undefined) : undefined
+      }
+      return self.clients.openWindow(url)
+    }),
+  )
 })

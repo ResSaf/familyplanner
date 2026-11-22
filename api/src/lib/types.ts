@@ -1,6 +1,6 @@
 /** `display` is the wall screen: it may only read what the dashboard shows (section 4). */
 export type Role = 'admin' | 'member' | 'display'
-export type DocType = 'member' | 'event' | 'list' | 'item' | 'task' | 'meal' | 'plan' | 'settings' | 'recipe' | 'chore' | 'choreWeek' | 'displayDevice' | 'note' | 'notePhoto' | 'document' | 'docPage' | 'wash'
+export type DocType = 'member' | 'event' | 'list' | 'item' | 'task' | 'meal' | 'plan' | 'settings' | 'recipe' | 'chore' | 'choreWeek' | 'displayDevice' | 'note' | 'notePhoto' | 'document' | 'docPage' | 'wash' | 'pushSub' | 'notifyState'
 export type Slot = 'breakfast' | 'lunch' | 'dinner'
 export const SLOTS: Slot[] = ['breakfast', 'lunch', 'dinner']
 export const CATEGORIES = ['Produce', 'Dairy', 'Bakery', 'Household', 'Other'] as const
@@ -25,6 +25,13 @@ export interface Member extends BaseDoc {
   lastLoginAt?: string
   active: boolean
   providerUserId?: string
+  /** Which phone notifications this person wants (5.15). Missing means both. */
+  notify?: NotifyChoices
+}
+
+export interface NotifyChoices {
+  wash: boolean
+  summary: boolean
 }
 
 export interface List extends BaseDoc {
@@ -196,12 +203,36 @@ export interface Wash extends BaseDoc {
   emptiedBy: string | null
   /** Each load's last length and programme, offered first next time. */
   usual: Partial<Record<Load, { minutes: number; programme: Programme }>>
+  /** When "Washing ready" and "Washing still waiting" were sent (5.15). Cleared when the wash is started or moved later. */
+  readyNotifiedAt?: string | null
+  lateNotifiedAt?: string | null
+}
+
+/**
+ * One phone's Web Push subscription (5.15, S35). Anyone holding it can send to that phone, so it is a secret:
+ * never logged, never sent back to the browser, never exported. The id comes from the endpoint, so saving the
+ * same phone again replaces its record.
+ */
+export interface PushSub extends BaseDoc {
+  type: 'pushSub'
+  memberId: string
+  endpoint: string
+  keys: { p256dh: string; auth: string }
+  label: string
+  lastSentAt?: string
+}
+
+/** What 5.15 has sent that isn't tied to a wash: the date of the last evening summary. One per family, id `notify`. */
+export interface NotifyState extends BaseDoc {
+  type: 'notifyState'
+  id: 'notify'
+  summarySentFor?: string
 }
 
 export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
 export type ImageType = (typeof IMAGE_TYPES)[number]
 
-export type AnyDoc = Member | List | Item | Task | Meal | PlanEntry | Recipe | Chore | ChoreWeek | Settings | DisplayDevice | Note | NotePhoto | FamilyDocument | DocPage | Wash
+export type AnyDoc = Member | List | Item | Task | Meal | PlanEntry | Recipe | Chore | ChoreWeek | Settings | DisplayDevice | Note | NotePhoto | FamilyDocument | DocPage | Wash | PushSub | NotifyState
 
 export interface Caller {
   memberId: string

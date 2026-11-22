@@ -68,6 +68,9 @@ export function Layout() {
               <NavLink to="/profile" role="menuitem">
                 My profile
               </NavLink>
+              <NavLink to="/notifications" role="menuitem">
+                Notifications
+              </NavLink>
               {me?.role === 'admin' && (
                 <>
                   <NavLink to="/members" role="menuitem">

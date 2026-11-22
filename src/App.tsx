@@ -13,6 +13,7 @@ import { MealPlan } from './pages/MealPlan'
 import { Members } from './pages/Members'
 import { NotAMember } from './pages/NotAMember'
 import { Notes } from './pages/Notes'
+import { Notifications } from './pages/Notifications'
 import { Profile } from './pages/Profile'
 import { RecipeDetail } from './pages/RecipeDetail'
 import { Recipes } from './pages/Recipes'
@@ -63,6 +64,7 @@ export default function App() {
         <Route path="/documents" element={<Documents />} />
         <Route path="/documents/:id" element={<DocumentDetail />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/notifications" element={<Notifications />} />
         <Route
           path="/members"
           element={

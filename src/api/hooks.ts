@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { ChatMessage, Chore, ChoreRepeat, ChoreSchedule, DisplayDevice, ExternalEvents, Item, List, Me, DocPageImage, FamilyDocument, MemberRecord, Note, NoteInput, Person, PlanEntry, Recipe, RecipeInput, Settings, Shopping, Task, WallList, WashStart, WashState, Weather } from './types'
+import type { ChatMessage, Chore, ChoreRepeat, ChoreSchedule, DisplayDevice, ExternalEvents, Item, List, Me, DocPageImage, FamilyDocument, MemberRecord, Note, NoteInput, NotifyChoices, Person, PlanEntry, Recipe, RecipeInput, Settings, Shopping, Task, WallList, WashStart, WashState, Weather } from './types'
 
 export const useMe = () => useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/me') })
 export const usePeople = () => useQuery({ queryKey: ['people'], queryFn: () => api<Person[]>('/people'), staleTime: 60_000 })
@@ -107,6 +107,9 @@ export const mutations = {
   adjustWash: (minutes: number) => api<WashState>('/wash/adjust', { method: 'POST', json: { minutes } }),
   emptyWash: () => api<WashState>('/wash/emptied', { method: 'POST', json: { emptied: true } }),
 
+  /** A test notification to each of my phones (5.15). */
+  pushTest: () => api<{ sent: number; removed: number }>('/push/test', { method: 'POST', json: {} }),
+
   setCell: (date: string, slot: string, body: { text: string }) =>
     api<PlanEntry>(`/plan/${date}/${slot}`, { method: 'PUT', json: body }),
   clearCell: (date: string, slot: string) => api<void>(`/plan/${date}/${slot}`, { method: 'DELETE' }),
@@ -137,7 +140,7 @@ export const mutations = {
 
   chat: (messages: ChatMessage[]) => api<{ reply: string }>('/chat', { method: 'POST', json: { messages } }),
 
-  patchMe: (body: { displayName?: string; colour?: string }) => api<Me>('/me', { method: 'PATCH', json: body }),
+  patchMe: (body: { displayName?: string; colour?: string; notify?: NotifyChoices }) => api<Me>('/me', { method: 'PATCH', json: body }),
   patchSettings: (body: { breakfastEnabled?: boolean; defaultListId?: string | null }) => api<Settings>('/settings', { method: 'PATCH', json: body }),
   invite: (email: string, role: string) => api<{ member: MemberRecord; instructions: string }>('/members/invite', { method: 'POST', json: { email, role } }),
   renameMember: (id: string, displayName: string) => api<MemberRecord>(`/members/${id}`, { method: 'PATCH', json: { displayName } }),
