@@ -9,6 +9,7 @@ import * as lists from './handlers/lists'
 import * as me from './handlers/me'
 import * as notes from './handlers/notes'
 import * as plan from './handlers/plan'
+import * as push from './handlers/push'
 import * as recipes from './handlers/recipes'
 import * as tasks from './handlers/tasks'
 import * as wash from './handlers/wash'
@@ -105,6 +106,13 @@ route('display-wash-adjust', 'POST', 'display/wash/adjust', WALL_WRITE, wash.adj
 route('display-wash-emptied', 'POST', 'display/wash/emptied', WALL_WRITE, wash.setWashEmptied)
 
 route('chat-post', 'POST', 'chat', ANY, chat.chat)
+
+// Phone notifications (5.15). Members only: none has a display alias, so the wall can't subscribe.
+route('push-key', 'GET', 'push/key', ANY, push.getPushKey)
+route('push-subscribe', 'PUT', 'push/subscription', ANY, push.saveSubscription)
+route('push-devices', 'GET', 'push/devices', ANY, push.getDevices)
+route('push-device-delete', 'DELETE', 'push/devices/{id}', ANY, push.deleteDevice)
+route('push-test', 'POST', 'push/test', ANY, push.sendTest)
 
 view('settings-get', 'settings', admin.getSettings)
 route('settings-patch', 'PATCH', 'settings', ADMIN, admin.patchSettings)

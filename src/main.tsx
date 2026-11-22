@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
+import { refreshSubscription } from './lib/push'
 import { ToastProvider } from './components/Toast'
 import './styles.css'
 
@@ -29,5 +30,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 )
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => void navigator.serviceWorker.register('/sw.js'))
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js').then(() => {
+      // Keeps this phone's notification subscription current (5.15). Never on the wall, which can't subscribe.
+      if (!window.location.pathname.startsWith('/display')) void refreshSubscription()
+    })
+  })
 }

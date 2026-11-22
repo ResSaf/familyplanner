@@ -118,6 +118,27 @@ export const settingsPatchSchema = z.object({
 export const mePatchSchema = z.object({
   displayName: title.optional(),
   colour: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  notify: z.object({ wash: z.boolean(), summary: z.boolean() }).optional(),
+})
+
+/**
+ * A phone's Web Push subscription (5.15). Only the push services phones use are accepted (S35), so a member
+ * can't make the API send requests to an address of their choosing.
+ */
+const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^([a-z0-9-]+\.)*push\.apple\.com$/, /^updates\.push\.services\.mozilla\.com$/, /^([a-z0-9-]+\.)*notify\.windows\.com$/]
+export function isPushEndpoint(endpoint: string): boolean {
+  try {
+    const u = new URL(endpoint)
+    return u.protocol === 'https:' && !u.username && !u.password && (u.port === '' || u.port === '443') && PUSH_HOSTS.some((h) => h.test(u.hostname))
+  } catch {
+    return false
+  }
+}
+const b64url = (max: number) => z.string().min(1).max(max).regex(/^[A-Za-z0-9_-]+=*$/, 'Not a key')
+export const pushSubscriptionSchema = z.object({
+  endpoint: z.string().max(1000).refine(isPushEndpoint, 'Not a push service address'),
+  keys: z.object({ p256dh: b64url(200), auth: b64url(100) }),
+  label: z.string().trim().min(1).max(40).default('Phone'),
 })
 
 /** An admin renaming a member. Only the name: role and colour are not changed this way. */

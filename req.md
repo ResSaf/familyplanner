@@ -30,7 +30,7 @@ Explicitly out of scope for the first release:
 
 - Multi-family or multi-tenant support. Data model should allow it later (a `familyId` on every record), but no UI or logic for it.
 - Native mobile apps. A responsive, installable web app (PWA) is sufficient.
-- Push notifications or reminders. Deferred to v2.
+- Push notifications beyond washing ready and the evening summary (5.15), and reminders. Event reminders come from Google Calendar itself.
 - Real-time collaboration (WebSockets or SignalR). Polling on focus is sufficient for v1.
 - Creating, editing or deleting events in the planner, and writing to Google Calendar. Google Calendar is the single source of truth for events; the planner only displays them (Section 5.3).
 - Budgeting, chores with rewards, recurring or tracked chores, photo sharing. All possible later, none in v1. Chores that come round every few weeks have since been added (5.9), and ticking chores off has been requested (5.13, R2).
@@ -222,8 +222,23 @@ Added 21 November 2026. The household has one washer-dryer, so there is one mach
 - **While it runs.** The dashboard shows a card first on the page with the load, time left, a progress bar, when it's ready and who started it ("the wall" for the frame). The wall's washer button shows the minutes left. Either opens the same detail with −10 and +10 minutes, for when the machine disagrees, and Cancel wash.
 - **Ready.** At the end time the dashboard card turns red, and on the wall a red alert takes the weather's place, flashing, on every view, saying "Washing ready" (it may only have been dried), the load or programme and how long it has been ready. Two hours after that it turns a darker red and pulses, saying how long it has waited. There is no sound, as for the kitchen timer. Tapping Emptied clears it. There is no Undo: a wash emptied by mistake is started again.
 - **Clock.** The end time is worked out by the server, and each read carries the server's time, so a frame whose clock has drifted still counts down to the right minute. The app checks every 30 seconds while open and the wall every 60, but both count down and turn red on their own.
-- **Not done.** No phone notification (push is out of scope, Section 3), no history of past washes, no second machine.
+- **Not done.** No history of past washes, no second machine. The phone notification when a wash is ready is in 5.15.
 - **Wall.** Starting, adjusting and emptying are three more display writes (S34), each a POST sent as JSON that changes the wash and nothing else, recorded as `display:<device id>`. Anyone at the frame can start, change or empty a wash, as anyone in the kitchen could press the machine's buttons; that is the accepted risk.
+
+### 5.15 Phone notifications
+
+Built 22 November 2026. Two notifications, sent as Web Push to the installed app: washing ready, and an evening summary of the next two days. Nothing else notifies. Event reminders already come from Google Calendar on each phone, so the planner doesn't repeat them.
+
+- **Turning on.** Each person turns notifications on per phone from a Notifications page in the account menu, open to every member, not only admins, since Settings is admin-only (5.7). The button asks the browser's permission, which must follow a tap, and saves that phone's subscription against the person. A person can have several devices; the page lists them by a label ("iPhone", "Android", "Windows") with Remove, and offers Send a test and Turn off on this phone. The wall display can't subscribe.
+- **iPhone.** Safari offers push only to an app added to the Home Screen (iOS 16.4 or later). In Safari, not installed, the page says how (Share, then Add to Home Screen, then open it from there) instead of showing the button. If permission was refused, the page says where to allow it in the phone's settings.
+- **Choices.** Two switches per person, not per device, both on when notifications are first turned on: Washing ready, and Evening summary.
+- **Washing ready.** Goes to every member who has Washing ready on, whoever started the wash, the wall included. It's sent once the end time (5.14) has passed, and not at all for a wash that finished more than 12 hours ago: "Washing ready", with the load or programme and the time it finished ("Darks, wash & dry. Ready since 14:32"). If the wash hasn't been emptied two hours later, one more is sent, "Washing still waiting", which replaces the first on the phone rather than adding a second (same notification tag). If the first check after the end is already two hours late, only the second is sent. Starting a wash re-arms both. Adjusting re-arms them when the new end time is still to come. Emptying stops anything still to be sent. Tapping opens the dashboard, where the wash card is first.
+- **Evening summary.** At 20:00 UK time, one notification to every member who has Evening summary on, covering tomorrow and the day after: for each day, the meals planned in the enabled slots (5.6), then that day's calendar events from every calendar the planner shows (5.3), all-day events first, then by start time. At most six events per day, then "and N more". A day with no meals planned says so, which is a nudge to plan. The title names the days ("Tomorrow and Tuesday"). The phone shows the first few lines and the rest when expanded. Tapping opens the dashboard. It's sent at most once per date, and not at all if it couldn't be sent by 22:00, so an outage never wakes anyone.
+- **Timing.** Managed functions only answer HTTP requests (Section 6), so there is no timer. Instead, every read of the washing machine (`GET /wash` and `/display/wash`) also sends whatever is due. The wall reads it every minute, all day, and the app every 30 seconds while it's open, so Washing ready arrives within about a minute. Each notice is recorded before it's sent, so the next read doesn't repeat it. Two reads at the same moment could both send it, which is harmless because the second replaces the first on the phone (same tag). A notification that fails to send never makes the read fail. The accepted risk: with the wall off, hung or offline and nobody's app open, nothing is sent. If that proves a problem, an outside timer calling an integration route can be added without changing anything else.
+- **Delivery.** The API sends with the `web-push` library, signed with the planner's VAPID key. A push service that says a subscription is gone (404 or 410) causes that device to be removed. Other failures are logged without the endpoint and the device is kept.
+- **Phone side.** The service worker handles `push`, showing the title and text with the app's icon, and `notificationclick`, which focuses an open planner window and moves it to the page or opens one. Each time the app opens with permission granted it saves the phone's current subscription again, so a subscription the browser has renewed heals itself without needing `pushsubscriptionchange`, which Safari doesn't send. Android shows a PNG icon, so the 192 and 512 px icons the manifest already lists (and that don't exist yet) are added, with a monochrome badge.
+- **Not done.** No to-do, chore or event reminders, no quiet hours, no choosing the summary time, no notifications to the wall.
+- **Decided 22 November 2026.** The summary is sent even when both days have no meals and no events, since an empty plan is worth knowing about. Washing still waiting is sent, once.
 
 ---
 
@@ -263,6 +278,7 @@ Design points:
 | Custom domain        | Existing or new registrar    | £0 to £12 per year                                                                      |
 | Application Insights | Pay as you go                | £0 within the 5 GB free monthly allowance                                               |
 | Claude Haiku 5.5     | Pay as you go                | Estimated under £1 at 100 questions a month                                             |
+| Web Push             | Apple, Google, Mozilla push  | £0                                                                                      |
 
 Alert on subscription spend above £5 per month so a mistake is noticed early. That alert doesn't cover the Anthropic account, so a monthly spend limit is set there too.
 
@@ -331,6 +347,7 @@ These are requirements, not suggestions. Each one has an acceptance check in Sec
 - S32. The forecast comes from Open-Meteo, which needs no key. The API fetches it and caches it in memory for 30 minutes, so the browser contacts no outside service (S10) and nothing about a person is sent. The town is fixed in the code as the centre of Reading, with coordinates to two decimal places, about a kilometre. No home address is involved, and those coordinates are all the forecast request contains.
 - S34. A wall display can be paired with its own key instead of a Microsoft account, so a frame on the wall needs no sign-in that can expire, be locked or ask for a second factor (D9). An admin creates a display on the Members page. The API generates 32 random bytes (base64url), stores only their SHA-256 in a `displayDevice` document and returns the key once, inside a pairing link `/display/pair#k=<key>`. The key is after the `#`, so it is never in a request line or a log, and the pairing page clears it from the address bar before presenting it once to `POST /api/display/pair`. The answer is a cookie `__Host-DisplayKey`, `Path=/`, `Secure`, `HttpOnly`, `SameSite=Strict`, `Max-Age` 400 days, renewed at most daily while the display is in use. The key is accepted only on the `/api/display/*` aliases of the routes the wall page reads, all GET, and on two writes: `POST /api/display/tasks/{id}/done` with `{ done }`, which ticks or unticks a to-do and changes nothing else about it, and `POST /api/display/items/{id}/checked` with `{ checked }`, which does the same for a list item on any open list. It also accepts the three washing machine writes of 5.14, `POST /api/display/wash`, `/display/wash/adjust` and `/display/wash/emptied`, which start, lengthen or shorten, and empty the one wash and change nothing else. Those routes must be sent as `application/json` (415 otherwise), so a form on another site can't post to it even if the `SameSite=Strict` cookie were sent. A tick is recorded with `completedBy` (or `checkedBy`) and `updatedBy` set to `display:<device id>`, not a person. The key makes the caller the `display` role, so the rule that the display may only use routes marked for it applies too, and every other route still needs a signed-in member at the edge (S5). A signed-in member can use the aliases as well. With neither, the answer is 403 `NOT_PAIRED`, never 401, because SWA would turn a 401 into a sign-in redirect. Keys are compared by hash in constant time and never logged (S23). Failed attempts are logged at warning (S24). Revoking clears the hash and the display is refused on its next request. The export leaves display records out. The accepted risks: anyone standing at the frame can tick a to-do or a list item, as with a list on the fridge, and the wall offers Undo for a few seconds after each tick; and someone with physical access to the paired frame could copy its key, read what the wall page shows and tick or untick to-dos and list items until it is revoked. The key cannot add, edit or delete a to-do or list item or change anything else, apart from the washing machine, which anyone at the frame can start, change or empty, as anyone in the kitchen can press its buttons.
 - S33. Chat sends the question, the recent conversation and whatever its tools read to Anthropic's API, from the API and never from the browser (S10). That can include anything about children in the planner (S28), so this is the one route by which family content leaves Azure and Google. Tools only read, are limited to the planner's own content and send names, never email addresses. For documents they send the title and description the family wrote, never the photos. There are no web or messaging tools, so text in a recipe or calendar invite that tries to instruct the model has nothing to act through. Replies are shown as plain text, so they can't load anything. Questions and answers are never logged (S23). The key lives only in application settings (S19). With no key set, chat is refused and nothing is sent.
+- S35. Notifications (5.15) are encrypted in the API with keys that only the receiving phone holds (RFC 8291) before they're handed to the push service (Apple, Google, Mozilla or Microsoft, chosen by the phone's browser). That service sees when a message is sent and its size, not what it says, so S33's statement that chat is the one route out of Azure and Google still holds for readable content. The text does appear on the phone, including its lock screen unless the phone is set to hide previews; that is each person's choice. The API only sends to a subscription endpoint that is `https` on `fcm.googleapis.com`, `*.push.apple.com`, `updates.push.services.mozilla.com` or `*.notify.windows.com`. Anything else is refused with 400, so a member can't make the API request an address of their choosing. A subscription lets anyone holding it send to that phone, so it's treated as a secret: it's never logged (S23), never returned to the browser after it's saved (the device list shows only label and date), and left out of the export. Removing a member deletes their subscriptions (S17), and deleting all data (S29) deletes every subscription. The VAPID private key lives only in application settings (S19), set by `infra/set-push-keys.sh`, which never prints it. Only the public key is sent to the browser. The wall display can read the washing machine and so trigger a notification that is due, but it can't subscribe, choose who is notified or change what is said.
 
 ---
 
@@ -352,7 +369,7 @@ These are requirements, not suggestions. Each one has an acceptance check in Sec
 All documents share: `id` (UUID), `familyId`, `type`, `createdAt`, `createdBy`, `updatedAt`, `updatedBy`. Dates are ISO 8601 strings.
 
 ```
-member   { displayName, email, role: "admin"|"member"|"display", colour, lastLoginAt, active: bool }
+member   { displayName, email, role: "admin"|"member"|"display", colour, lastLoginAt, active: bool, notify?: { wash: bool, summary: bool } (5.15; missing means both on) }
 
 list     { name, sortOrder, archived: bool }
 
@@ -370,13 +387,17 @@ choreWeek { week: "YYYY-MM-DD" (the Monday), choreId, memberId }
 
 note     { title, category?, body }
 
-wash     { load?, programme: wash|wash-dry|dry, minutes, startsAt, endsAt, startedBy, emptiedAt?, emptiedBy?, usual: { <load>: { minutes, programme } } }   (id "wash", one per family, 5.14; records from before programmes have dry: bool, read as wash or wash-dry)
+wash     { load?, programme: wash|wash-dry|dry, minutes, startsAt, endsAt, startedBy, emptiedAt?, emptiedBy?, usual: { <load>: { minutes, programme } } }   (id "wash", one per family, 5.14; records from before programmes have dry: bool, read as wash or wash-dry; readyNotifiedAt? and lateNotifiedAt? record what 5.15 has sent)
 
 document { title, description, pageIds: [string], thumb? (small JPEG, base64) }
 
 docPage  { documentId, contentType: "image/jpeg"|"image/png"|"image/webp", data (base64) }   (id "docpage:<document id>:<uuid>")
 
 displayDevice { name, keyHash (SHA-256 hex, "" once revoked), active: bool, lastSeenAt? }   (S34)
+
+pushSub  { memberId, endpoint, keys: { p256dh, auth }, label, lastSentAt? }   (id "pushsub:<SHA-256 of endpoint>", so saving again replaces it; 5.15, S35; not exported)
+
+notifyState { summarySentFor?: "YYYY-MM-DD" }   (id "notify", one per family, 5.15)
 ```
 
 Plan entries are keyed so that `(familyId, date, slot)` is unique, and chore weeks so that `(familyId, week, choreId)` is. Settings that are family-wide (enabled meal slots, default shopping list) live on a single `settings` document with `id = "settings"`.
@@ -430,7 +451,12 @@ All routes under `/api`, JSON in and out, role `member` or `admin` unless marked
 | GET | `/documents/{id}/pages/{pageId}` | One page's image, only through the document that lists it |
 | DELETE | `/documents/{id}/pages/{pageId}` | Delete a page |
 | POST | `/integration/notes` | Add notes whose titles are new, for Hermes. Token, not a login (S31). Returns `{ added, skipped, failed }` |
-| GET | `/wash` | The washing machine (5.14): `{ wash, usual, now }`, `wash` null when empty, `now` the server's time |
+| GET | `/push/key` | The VAPID public key (5.15) |
+| PUT | `/push/subscription` | Save this device's subscription for the caller: `{ endpoint, keys: { p256dh, auth }, label }`, endpoint on the S35 allowlist. Not for the display |
+| GET | `/push/devices` | The caller's devices: `{ id, label, createdAt }` only |
+| DELETE | `/push/devices/{id}` | Remove one of the caller's devices |
+| POST | `/push/test` | Send a test notification to the caller's devices |
+| GET | `/wash` | The washing machine (5.14): `{ wash, usual, now }`, `wash` null when empty, `now` the server's time. Also sends any phone notifications that are due (5.15) |
 | POST | `/wash` | Start a wash: `{ minutes, programme?, load?, delayMinutes? }`, only `minutes` required. `dry: true` from an older page means wash & dry. Replaces the one in the machine |
 | POST | `/wash/adjust` | `{ minutes }`, −120 to 120: lengthen or shorten the wash in the machine |
 | POST | `/wash/emptied` | `{ emptied: true }`: empty the machine. There is no un-emptying |
@@ -457,7 +483,7 @@ All routes under `/api`, JSON in and out, role `member` or `admin` unless marked
 | POST | `/members/invite` | Create an invitation (admin) |
 | PATCH | `/members/{id}` | Rename a member (`{ displayName }` only; admin) |
 | DELETE | `/members/{id}` | Remove member (admin) |
-| PATCH | `/members/me` | Update own display name and colour |
+| PATCH | `/members/me` | Update own display name, colour and notification choices (`notify`, 5.15) |
 | GET | `/export` | Full JSON export (admin) |
 
 Error responses use a consistent shape: `{ "error": "message", "code": "SHORT_CODE" }` with appropriate status codes (400 validation, 401 unauthenticated, 403 wrong role, 404 not found).
@@ -510,6 +536,9 @@ Each of these should be demonstrable before v1 is called done.
 - A9m. Start Darks, wash & dry, 59 minutes, on the wall: the dashboard shows it with 59 minutes left, started by the wall. Starting Darks again offers 59 minutes and Wash & dry. At the end time the dashboard card and the wall's alert are red, and two hours later darker and pulsing. Emptied clears both, and there is no Undo. A "Ready in 8h" wash of 1 hour starts in 7 hours. Choosing only 90 minutes and Dry only, then Start drying, shows "Dry only" on the card, and "Washing ready, Dry only" on the wall when done.
 - A9l. On a phone, photograph a two-page letter, give it a title and save it: both pages show upright, each upload is well under 1.5 MB, and the title is found by searching the Documents page and by asking chat about it. The wall display gets no answer from any document route.
 - A9m. Add a three-page PDF and a scanned PDF to a new document on a phone: every page shows as a page, the title is suggested from the first PDF's name, and no CSP violation is reported. A 60-page PDF and a file that isn't a PDF are each refused with a message and add no pages.
+- A9n. On an Android phone, and on an iPhone with the planner added to its Home Screen, turn notifications on and Send a test: each phone shows it, and tapping opens the planner. In Safari on an iPhone, not installed, the page explains how to add it to the Home Screen instead of offering the button.
+- A9o. Start a 10-minute wash on the wall. Within a minute of its end, with the wall running, every member with Washing ready on gets "Washing ready" once, and nobody with it off gets anything. Two hours later the same notification is replaced by "Washing still waiting". A wash emptied before its end sends nothing. Adding 10 minutes after the first notification sends it again at the new end. A push service answering 410 removes that device.
+- A9p. At 20:00 UK time, every member with Evening summary on gets one notification listing tomorrow's and the next day's planned meals and calendar events, matching the dashboard, and the next read sends no second one. A day with no meals says so. With the wall off and no app open until 22:30, nothing is sent that day.
 - A10. Export downloads a JSON file that contains every list, item, task, plan entry, recipe, chore, chore week, note and member, and each document's title and description (not its images).
 
 **Security and operations**
@@ -517,6 +546,7 @@ Each of these should be demonstrable before v1 is called done.
 - A12. A request body with an extra field `"role": "admin"` on `PATCH /api/members/me` does not change the role.
 - A13. A title of 10,000 characters is rejected with 400.
 - A13a. A display member gets 403 from every route outside its read list, including chat, every write, export and the members list, and the data is unchanged afterwards. The only exceptions are the display write routes of S34.
+- A13c. Saving a subscription whose endpoint is outside the S35 allowlist, or is not `https`, gets 400 and nothing is stored. The display gets 403 from every `/push` route. The export and the device list contain no endpoint or key, and no log line contains one.
 - A13b. A display key can tick and untick a to-do, recorded as the display, and nothing else about the to-do changes even if the body asks. Without JSON it gets 415, and without a valid key NOT_PAIRED, and the to-do is unchanged.
 - A14. `grep` of the repository for the Cosmos DB account key returns nothing, and the CI secret scan passes.
 - A15. Application Insights shows a request log line with user id and status for an API call, and no line containing a request body.

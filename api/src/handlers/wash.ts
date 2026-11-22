@@ -1,5 +1,6 @@
 import { notFound } from '../lib/errors'
 import type { Ctx, Handler } from '../lib/http'
+import { notifyDue } from '../lib/notify'
 import { parse, washAdjustSchema, washEmptiedSchema, washStartSchema } from '../lib/schemas'
 import type { Programme, Wash } from '../lib/types'
 import { stamp, touch } from '../lib/util'
@@ -35,7 +36,15 @@ function view(wash: Wash | undefined, now: Date) {
   return { wash: current, usual: wash?.usual ?? {}, now: now.toISOString() }
 }
 
-export const getWash: Handler = async (ctx) => ({ body: view(await load(ctx), ctx.now) })
+/**
+ * The wall reads this every minute and the app every 30 seconds while open, so it is also what sends the
+ * phone notifications that are due (5.15). There is no timer in the API to do it otherwise.
+ */
+export const getWash: Handler = async (ctx) => {
+  const wash = await load(ctx)
+  await notifyDue(ctx.store, ctx.caller.familyId, ctx.now, wash)
+  return { body: view(wash, ctx.now) }
+}
 
 /** Starts a wash, replacing whatever was in the machine: loading it means the last one came out. */
 export const startWash: Handler = async (ctx, _p, _q, body) => {
@@ -52,6 +61,9 @@ export const startWash: Handler = async (ctx, _p, _q, body) => {
     startedBy: caller.memberId,
     emptiedAt: null,
     emptiedBy: null,
+    // A new wash: its notifications (5.15) are still to send.
+    readyNotifiedAt: null,
+    lateNotifiedAt: null,
     // Remembered per kind of clothes, so only when that was said.
     usual: input.load ? { ...(existing?.usual ?? {}), [input.load]: { minutes: input.minutes, programme: input.programme } } : (existing?.usual ?? {}),
   }
@@ -67,7 +79,9 @@ export const adjustWash: Handler = async (ctx, _p, _q, body) => {
   if (!wash || wash.emptiedAt) throw notFound('Nothing in the washing machine')
   const minutes = Math.max(1, wash.minutes + by)
   const endsAt = new Date(Date.parse(wash.startsAt) + minutes * MINUTE).toISOString()
-  const saved = await ctx.store.upsert(touch(ctx.caller, wash, { minutes, endsAt }))
+  // Moved later than now, it isn't ready after all, so it will be announced again when it is (5.15).
+  const rearm = Date.parse(endsAt) > ctx.now.getTime() ? { readyNotifiedAt: null, lateNotifiedAt: null } : {}
+  const saved = await ctx.store.upsert(touch(ctx.caller, wash, { minutes, endsAt, ...rearm }))
   return { body: view(saved, ctx.now) }
 }
 

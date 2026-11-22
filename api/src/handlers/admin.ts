@@ -1,7 +1,7 @@
 import { badRequest, notFound } from '../lib/errors'
 import type { Handler } from '../lib/http'
 import { eraseSchema, inviteSchema, memberRenameSchema, parse, settingsPatchSchema } from '../lib/schemas'
-import type { FamilyDocument, List, Member, Settings } from '../lib/types'
+import type { FamilyDocument, List, Member, PushSub, Settings } from '../lib/types'
 import { memberColour, PALETTE } from '../lib/caller'
 import { stamp, touch } from '../lib/util'
 
@@ -66,6 +66,8 @@ export const removeMember: Handler = async ({ store, caller }, params) => {
   if (!member) throw notFound('Member not found')
   if (member.id === caller.memberId) throw badRequest('You cannot remove yourself')
   await store.upsert(touch(caller, member, { active: false }))
+  // Their phones stop getting notifications (S35).
+  for (const s of await store.byType<PushSub>(caller.familyId, 'pushSub')) if (s.memberId === member.id) await store.delete(caller.familyId, s.id)
   return { status: 204 }
 }
 
