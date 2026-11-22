@@ -1,5 +1,5 @@
 /* App-shell cache only. API responses and auth are never cached (section 8). */
-const CACHE = 'familyplanner-shell-v3'
+const CACHE = 'familyplanner-shell-v4'
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png', '/icons/badge-96.png']
 
 self.addEventListener('install', (e) => {
@@ -15,8 +15,9 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || url.origin !== location.origin) return
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/.auth/')) return
 
-  if (e.request.mode === 'navigate') {
-    e.respondWith(fetch(e.request).catch(() => caches.match('/index.html')))
+  // The manifest carries the installed app's name and icons, so a change to it must reach the phone: network first.
+  if (e.request.mode === 'navigate' || url.pathname === '/manifest.webmanifest') {
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request.mode === 'navigate' ? '/index.html' : e.request)))
     return
   }
   if (url.pathname.startsWith('/assets/') || SHELL.includes(url.pathname)) {
