@@ -49,13 +49,17 @@ self.addEventListener('push', (e) => {
       icon: '/icons/icon-192.png',
       badge: '/icons/badge-96.png',
       data: { url: typeof n.url === 'string' && n.url.startsWith('/') ? n.url : '/' },
+      // Chrome on Android adds its own Unsubscribe button, which the page can't remove; this sits beside it.
+      // iPhones show no buttons, and a swipe dismisses there.
+      actions: [{ action: 'dismiss', title: 'Dismiss' }],
     }),
   )
 })
 
-/** Tapping opens the planner at the notice's page, reusing an open window if there is one. */
+/** Tapping opens the planner at the notice's page, reusing an open window if there is one. Dismiss only closes it. */
 self.addEventListener('notificationclick', (e) => {
   e.notification.close()
+  if (e.action === 'dismiss') return
   const url = new URL(e.notification.data?.url || '/', self.location.origin).href
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (wins) => {
