@@ -691,6 +691,9 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
 .wall-wash-bar { height: 14px; }
 .wall-wash-meta { margin: 0; font-size: 1.3rem; color: var(--muted); text-align: center; }
 .wall-wash-actions { display: flex; gap: 1rem; }
+/* Start fills the row beside Back, as it filled the form on its own before. */
+.wash-form > .wash-actions, .wall-wash-form > .wall-wash-actions { flex-wrap: nowrap; }
+.wash-form > .wash-actions > .wash-start, .wall-wash-form > .wall-wash-actions > .wall-wash-start { flex: 1; }
 .wall-wash-done, .wall-wash-overdue { color: #fff; }
 .wall-wash-detail.wall-wash-done { background: var(--wash-ready); }
 .wall-wash-detail.wall-wash-overdue { background: var(--wash-waiting); }

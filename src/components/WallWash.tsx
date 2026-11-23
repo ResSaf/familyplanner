@@ -11,11 +11,17 @@ import { useWashActions, useWashNow, WashDetail, WashStartForm } from './Wash'
  */
 export function useWallWash(): { button: ReactNode; alert: ReactNode; panel: ReactNode } {
   const [open, setOpen] = useState(false)
+  /** Loading the next wash in place of the one just finished. */
+  const [reloading, setReloading] = useState(false)
+  const close = () => {
+    setOpen(false)
+    setReloading(false)
+  }
   const { state, status } = useWashNow(open ? 5_000 : 15_000)
   const actions = useWashActions()
 
   const empty = async () => {
-    if (await actions.empty()) setOpen(false)
+    if (await actions.empty()) close()
   }
 
   const phase = status?.phase
@@ -47,16 +53,27 @@ export function useWallWash(): { button: ReactNode; alert: ReactNode; panel: Rea
   )
 
   const panel = open && (
-    <div className="wall-timer-backdrop" onClick={() => setOpen(false)}>
+    <div className="wall-timer-backdrop" onClick={close}>
       <div className="wall-timer wall-wash" role="dialog" aria-modal="true" aria-label="Washing machine" onClick={(e) => e.stopPropagation()}>
-        {state?.wash && status ? (
-          <WashDetail state={state} status={status} busy={actions.busy} onAdjust={(by) => void actions.adjust(by)} onEmpty={() => void empty()} wall />
+        {state?.wash && status && !reloading ? (
+          <WashDetail
+            state={state}
+            status={status}
+            busy={actions.busy}
+            onAdjust={(by) => void actions.adjust(by)}
+            onEmpty={() => void empty()}
+            onReload={() => setReloading(true)}
+            wall
+          />
         ) : (
+          // Starting replaces the wash in the machine, which counts as emptying it, so one call does both.
           <WashStartForm
             state={state}
+            initial={reloading ? (state?.wash ?? undefined) : undefined}
             busy={actions.busy}
+            onBack={reloading ? () => setReloading(false) : undefined}
             onStart={async (body) => {
-              if (await actions.start(body)) setOpen(false)
+              if (await actions.start(body)) close()
             }}
             wall
           />
@@ -67,7 +84,7 @@ export function useWallWash(): { button: ReactNode; alert: ReactNode; panel: Rea
           </p>
         )}
         <div className="wall-timer-actions">
-          <button type="button" className="wall-flip" onClick={() => setOpen(false)}>
+          <button type="button" className="wall-flip" onClick={close}>
             <Icon name="close" size={28} />
             Close
           </button>
