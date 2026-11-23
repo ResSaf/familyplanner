@@ -71,10 +71,26 @@ const hoursLabel = (h: number) => `${h}h`
  * defaults to a wash; the kind of clothes and a delay start are extras, marked optional. A few taps, no typing, so it
  * suits the wall as well as a phone. A long programme's length can be typed on a keypad, opened by tapping the length.
  */
-export function WashStartForm({ state, busy, onStart, wall = false }: { state?: State; busy: boolean; onStart: (body: WashStart) => void; wall?: boolean }) {
-  const [load, setLoad] = useState<Load | null>(null)
-  const [programme, setProgramme] = useState<Programme>('wash')
-  const [minutes, setMinutes] = useState(DEFAULT_MINUTES)
+export function WashStartForm({
+  state,
+  busy,
+  onStart,
+  onBack,
+  initial,
+  wall = false,
+}: {
+  state?: State
+  busy: boolean
+  onStart: (body: WashStart) => void
+  /** Shown as a Back button beside Start, for when the form opened from the wash just finished. */
+  onBack?: () => void
+  /** Filled in from the wash just emptied, so the same again is one tap. */
+  initial?: Pick<WashStart, 'load' | 'programme' | 'minutes'>
+  wall?: boolean
+}) {
+  const [load, setLoad] = useState<Load | null>(initial?.load ?? null)
+  const [programme, setProgramme] = useState<Programme>(initial?.programme ?? 'wash')
+  const [minutes, setMinutes] = useState(initial?.minutes ?? DEFAULT_MINUTES)
   /** Once the length or programme is set by hand, picking a load no longer changes it. */
   const [lengthSet, setLengthSet] = useState(false)
   const [programmeSet, setProgrammeSet] = useState(false)
@@ -220,14 +236,21 @@ export function WashStartForm({ state, busy, onStart, wall = false }: { state?: 
           )}
           {delay === null && <p className={`${p}-error`}>Ready in {delayHours}h is sooner than it takes.</p>}
 
-          <button
-            type="button"
-            className={`${p}-start`}
-            disabled={delay === null || busy}
-            onClick={() => delay !== null && onStart({ load, programme, minutes, delayMinutes: delay })}
-          >
-            {startLabel({ load, programme })}
-          </button>
+          <div className={`${p}-actions`}>
+            {onBack && (
+              <button type="button" className={`${p}-step`} disabled={busy} onClick={onBack}>
+                Back
+              </button>
+            )}
+            <button
+              type="button"
+              className={`${p}-start`}
+              disabled={delay === null || busy}
+              onClick={() => delay !== null && onStart({ load, programme, minutes, delayMinutes: delay })}
+            >
+              {startLabel({ load, programme })}
+            </button>
+          </div>
         </>
       )}
     </div>
@@ -241,6 +264,7 @@ export function WashDetail({
   busy,
   onAdjust,
   onEmpty,
+  onReload,
   wall = false,
 }: {
   state: State
@@ -248,6 +272,8 @@ export function WashDetail({
   busy: boolean
   onAdjust: (by: number) => void
   onEmpty: () => void
+  /** Emptied and the next load going straight in, which is the usual: opens the start form. */
+  onReload: () => void
   wall?: boolean
 }) {
   const startedBy = useStartedBy()
@@ -282,15 +308,21 @@ export function WashDetail({
             </button>
           </>
         )}
-        <button type="button" className={finished ? `${p}-start` : `${p}-step`} disabled={busy} onClick={onEmpty}>
-          {finished ? (
-            <>
-              <Icon name="check" size={wall ? 30 : 20} /> Emptied
-            </>
-          ) : (
-            'Cancel wash'
-          )}
-        </button>
+        {finished ? (
+          <>
+            {/* Most of the time the machine is emptied to load it again, so that comes first. */}
+            <button type="button" className={`${p}-start`} disabled={busy} onClick={onReload}>
+              <Icon name="washer" size={wall ? 30 : 20} /> Emptied, load another
+            </button>
+            <button type="button" className={`${p}-step`} disabled={busy} onClick={onEmpty}>
+              <Icon name="check" size={wall ? 24 : 18} /> Just emptied
+            </button>
+          </>
+        ) : (
+          <button type="button" className={`${p}-step`} disabled={busy} onClick={onEmpty}>
+            Cancel wash
+          </button>
+        )}
       </div>
     </div>
   )
@@ -321,13 +353,35 @@ export function WashSheet({ onClose }: { onClose: () => void }) {
 export function WashCard() {
   const { state, status } = useWashNow()
   const actions = useWashActions()
+  /** Loading the next wash in place of the one just finished. */
+  const [reloading, setReloading] = useState(false)
   if (!state?.wash || !status) return null
   return (
-    <section className={`wash-card card wash-card-${status.phase}`} aria-labelledby="wash-h">
+    <section className={`wash-card card ${reloading ? 'wash-card-reload' : `wash-card-${status.phase}`}`} aria-labelledby="wash-h">
       <h2 id="wash-h" className="section-title">
-        <Icon name="washer" size={20} /> Washing machine
+        <Icon name="washer" size={20} /> {reloading ? 'Next wash' : 'Washing machine'}
       </h2>
-      <WashDetail state={state} status={status} busy={actions.busy} onAdjust={(by) => void actions.adjust(by)} onEmpty={() => void actions.empty()} />
+      {reloading ? (
+        // Starting replaces the wash in the machine, which counts as emptying it, so one call does both.
+        <WashStartForm
+          state={state}
+          initial={state.wash}
+          busy={actions.busy}
+          onBack={() => setReloading(false)}
+          onStart={async (body) => {
+            if (await actions.start(body)) setReloading(false)
+          }}
+        />
+      ) : (
+        <WashDetail
+          state={state}
+          status={status}
+          busy={actions.busy}
+          onAdjust={(by) => void actions.adjust(by)}
+          onEmpty={() => void actions.empty()}
+          onReload={() => setReloading(true)}
+        />
+      )}
       {actions.error && <p className="wash-error">{actions.error}</p>}
     </section>
   )
